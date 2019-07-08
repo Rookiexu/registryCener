@@ -3,6 +3,7 @@ package cn.rookiex.core.registry;
 import cn.rookiex.core.center.EtcdRegisterCenterImpl;
 import cn.rookiex.core.factory.EtcdServiceFactoryImpl;
 import cn.rookiex.core.service.Service;
+import org.apache.log4j.Logger;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -16,6 +17,7 @@ import java.util.concurrent.ExecutionException;
  */
 @SuppressWarnings("Duplicates")
 public class EtcdRegistryImplTest {
+    private Logger log = Logger.getLogger(getClass());
     private String endpoint = "http://etcd.rookiex.cn:2379";
     private String service = "testService";
     private String ip = "192.168.2.26";
@@ -67,6 +69,39 @@ public class EtcdRegistryImplTest {
         });
         System.out.println("after over");
 
+    }
+
+    @Test
+    public void registerServiceKeepAlive() {
+        int size = 1;
+        EtcdRegistryImpl etcdRegister = new EtcdRegistryImpl();
+        etcdRegister.init(endpoint);
+
+        List<Service> serviceList;
+        try {
+            for (int i = 0; i < size; i++) {
+                String newIp = ip + ":" + (port + i);
+                etcdRegister.registerService(service, newIp);
+            }
+        } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        for (int i = 0; i < 20; i++) {
+            try {
+                Thread.sleep(10000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            serviceList = etcdRegister.getServiceList(service);
+            log.info("after start");
+            serviceList.forEach(service -> {
+                String serviceName = service.getServiceName();
+                String fullPath = service.getFullPath();
+                log.info("after path ==> " + fullPath + " ,name ==> " + serviceName + " serverIsBand ==> " + service.isBanned());
+            });
+            log.info("after over");
+        }
     }
 
     @Test

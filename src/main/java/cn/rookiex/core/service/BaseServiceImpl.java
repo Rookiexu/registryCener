@@ -1,16 +1,7 @@
 package cn.rookiex.core.service;
 
 import cn.rookiex.core.RegistryConstants;
-import cn.rookiex.core.center.RegisterCenter;
-import cn.rookiex.core.updateEvent.EtcdServiceUpdateEventImpl;
-import cn.rookiex.core.updateEvent.ServiceUpdateEvent;
-import com.coreos.jetcd.data.KeyValue;
-import com.coreos.jetcd.watch.WatchEvent;
-import util.log.LogFactory;
-import util.log.Logger;
-
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import org.apache.log4j.Logger;
 
 /**
  * @Author : Rookiex
@@ -18,20 +9,14 @@ import java.util.concurrent.ScheduledExecutorService;
  * @Describe :
  */
 public abstract class BaseServiceImpl implements Service {
-    Logger log = LogFactory.getLogger(getClass());
+    Logger log = Logger.getLogger(getClass());
 
     private String fullPath;
     private String serviceName;
     private String path;
     private long lease;
     private boolean banned;
-
-
-    public static ScheduledExecutorService executorService;
-
-    public static void initExecutorService(int size){
-        executorService = Executors.newScheduledThreadPool(size);
-    }
+    private boolean delete;
 
     public BaseServiceImpl(String fullPath, boolean banned, long lease) {
         String[] split = fullPath.split(RegistryConstants.SEPARATOR);
@@ -78,6 +63,18 @@ public abstract class BaseServiceImpl implements Service {
     @Override
     public void setBanned(boolean banned) {
         this.banned = banned;
+    }
+
+    /**
+     * 服务是否正常
+     */
+    @Override
+    public boolean isDelete() {
+        return this.delete;
+    }
+
+    public void setDelete(boolean delete){
+        this.delete = delete;
     }
 
     /**

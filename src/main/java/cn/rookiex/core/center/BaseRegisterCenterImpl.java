@@ -1,18 +1,12 @@
 package cn.rookiex.core.center;
 
 import cn.rookiex.core.factory.ServiceFactory;
-import cn.rookiex.core.registry.EtcdRegistryImpl;
 import cn.rookiex.core.registry.Registry;
 import cn.rookiex.core.service.Service;
-import cn.rookiex.core.updateEvent.EtcdServiceUpdateEventImpl;
 import cn.rookiex.core.updateEvent.ServiceUpdateEvent;
-import com.coreos.jetcd.data.ByteSequence;
-import com.coreos.jetcd.data.KeyValue;
-import com.coreos.jetcd.watch.WatchEvent;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import util.log.LogFactory;
-import util.log.Logger;
+import org.apache.log4j.Logger;
 
 import java.util.List;
 import java.util.Map;
@@ -25,7 +19,9 @@ import java.util.stream.Collectors;
  * @Describe :
  */
 public abstract class BaseRegisterCenterImpl implements RegisterCenter {
-    Logger log = LogFactory.getLogger(getClass());
+    Logger log = Logger.getLogger(getClass());
+
+    public static boolean NEED_REMOVE_DELETE_CHILD = false;
 
     private Registry registry;
 
@@ -122,10 +118,6 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
             }
         });
     }
-
-    public abstract void addService(ServiceUpdateEvent event);
-
-    public abstract void checkServiceState();
 
     public ServiceFactory getFactory() {
         return factory;

@@ -69,4 +69,9 @@ public interface Service {
      * 服务是否正常
      * */
     boolean isActive();
+
+    /**
+     * 服务是否正常
+     * */
+    boolean isDelete();
 }

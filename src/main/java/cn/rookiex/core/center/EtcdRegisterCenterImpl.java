@@ -9,8 +9,7 @@ import com.coreos.jetcd.data.ByteSequence;
 import com.coreos.jetcd.data.KeyValue;
 import com.coreos.jetcd.watch.WatchEvent;
 import com.google.common.collect.Maps;
-import util.log.LogFactory;
-import util.log.Logger;
+import org.apache.log4j.Logger;
 
 import java.util.Map;
 
@@ -21,8 +20,9 @@ import java.util.Map;
  */
 public class EtcdRegisterCenterImpl extends BaseRegisterCenterImpl {
 
-    Logger log = LogFactory.getLogger(getClass());
+    Logger log = Logger.getLogger(getClass());
     private Map<String, Map<String, Service>> errServiceListMap = Maps.newConcurrentMap();
+
     public EtcdRegisterCenterImpl(Registry registry) {
         super(registry);
     }
@@ -41,6 +41,21 @@ public class EtcdRegisterCenterImpl extends BaseRegisterCenterImpl {
                 Service service = factory.getService(keyS, value.toStringUtf8().equals(EtcdRegistryImpl.BAN), lease);
                 if (service != null)
                     addService(service);
+            }
+        }
+    }
+
+    /**
+     * 删除服务节点
+     *
+     * @param service
+     */
+    @Override
+    public void removeService(Service service) {
+        if (!service.isActive() && NEED_REMOVE_DELETE_CHILD) {
+            Map<String, Service> serviceMap = serviceMapMap.get(service.getServiceName());
+            if (serviceMap != null) {
+                serviceMap.remove(service.getFullPath());
             }
         }
     }

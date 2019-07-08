@@ -21,8 +21,7 @@ import com.google.common.collect.Maps;
 import cn.rookiex.core.center.RegisterCenter;
 import cn.rookiex.core.RegistryConstants;
 import cn.rookiex.core.service.Service;
-import util.log.LogFactory;
-import util.log.Logger;
+import org.apache.log4j.Logger;
 
 import java.util.List;
 import java.util.Map;
@@ -36,11 +35,11 @@ import java.util.concurrent.*;
 public class EtcdRegistryImpl implements Registry {
 
     public static final String BAN = "ban", OPEN = "open";
-    public static int TTL_TIME = 60;
+    public static int TTL_TIME = 10;
 
     private long leaseId = 0;
 
-    private Logger logger = LogFactory.getLogger(getClass());
+    private Logger logger = Logger.getLogger(getClass());
 
     private Lease leaseClient;
     private KV kvClient;
@@ -140,7 +139,9 @@ public class EtcdRegistryImpl implements Registry {
                 try {
                     CompletableFuture<LeaseKeepAliveResponse> responseCompletableFuture = leaseClient.keepAliveOnce(leaseId);
                     LeaseKeepAliveResponse leaseKeepAliveResponse = responseCompletableFuture.get();
-                    logger.info("KeepAlive lease:" + leaseKeepAliveResponse.getID() + "; Hex format:" + Long.toHexString(leaseKeepAliveResponse.getID()));
+
+                    logger.info("KeepAlive  ttl == " + leaseKeepAliveResponse.getTTL() + " lease:" + leaseKeepAliveResponse.getID()
+                            + "; Hex format:" + Long.toHexString(leaseKeepAliveResponse.getID()));
                 } catch (Exception e) {
                     logger.error(e.getMessage(), e);
                 }
@@ -203,6 +204,7 @@ public class EtcdRegistryImpl implements Registry {
                 updateEvent.setServiceName(serviceName);
                 updateEvent.setKeyValue(keyValue);
                 updateEvent.setPrevKV(prevKV);
+                updateEvent.setFullPath(keyS);
                 updateEvents.add(updateEvent);
             }
         });
