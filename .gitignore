@@ -8,3 +8,6 @@ bin/
 *.iws
 target/
 /.project
+
+##---log---
+logs/
