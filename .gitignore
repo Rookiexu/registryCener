@@ -1,0 +1,10 @@
+##----eclipse---
+bin/
+
+##----idea---
+*.iml
+.idea/
+*.ipr
+*.iws
+target/
+/.project

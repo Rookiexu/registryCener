@@ -13,6 +13,8 @@ import java.util.concurrent.ExecutionException;
  */
 public interface Registry {
 
+    void init(String url);
+
     /**
      * 获得serviceName下的所有服务
      * */

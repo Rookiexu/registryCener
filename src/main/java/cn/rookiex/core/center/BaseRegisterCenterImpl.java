@@ -40,7 +40,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
     @Override
     public void register(String serviceName, String ip) {
         try {
-            registry.registerService(serviceName,ip);
+            registry.registerService(serviceName, ip);
         } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
         }
@@ -50,12 +50,12 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
      * 服务注册取消
      *
      * @param serviceName s
-     * @param ip i
+     * @param ip          i
      */
     @Override
     public void unRegister(String serviceName, String ip) {
         try {
-            registry.bandService(serviceName,ip);
+            registry.bandService(serviceName, ip);
         } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
         }
@@ -89,6 +89,12 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
     }
 
     @Override
+    public List<Service> getServiceListWithUnWork(String serviceName) {
+        Map<String, Service> stringServiceMap = serviceMapMap.get(serviceName);
+        return stringServiceMap != null ? Lists.newArrayList(stringServiceMap.values()) : Lists.newArrayList();
+    }
+
+    @Override
     public void addService(Service service) {
         String serviceName = service.getServiceName();
         Map<String, Service> serviceMap = serviceMapMap.computeIfAbsent(serviceName, k -> Maps.newConcurrentMap());
@@ -105,11 +111,14 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
     public void callback(List<ServiceUpdateEvent> events) {
         events.forEach(event -> {
             Map<String, Service> stringServiceMap = serviceMapMap.get(event.getServiceName());
-            Service service1 = stringServiceMap.get(event.getFullPath());
-            if (service1 != null) {
-                service1.update(event, this);
-            } else {
+            Service service1 = null;
+            if (stringServiceMap != null)
+                service1 = stringServiceMap.get(event.getFullPath());
+
+            if (service1 == null) {
                 addService(event);
+            } else {
+                service1.update(event, this);
             }
         });
     }

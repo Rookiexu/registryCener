@@ -52,6 +52,7 @@ public class EtcdRegistryImpl implements Registry {
 
     private Map<String, RegisterCenter> watchServiceMap = Maps.newConcurrentMap();
 
+    @Override
     public void init(String url) {
         Client client = Client.builder().endpoints(url).build();
         this.leaseClient = client.getLeaseClient();

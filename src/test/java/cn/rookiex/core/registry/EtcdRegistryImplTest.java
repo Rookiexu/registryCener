@@ -16,10 +16,10 @@ import java.util.concurrent.ExecutionException;
  */
 @SuppressWarnings("Duplicates")
 public class EtcdRegistryImplTest {
-    String endpoint = "http://etcd.rookiex.cn:2379";
-    String serevice = "testService";
-    String ip = "192.168.2.26";
-    int port = 1111;
+    private String endpoint = "http://etcd.rookiex.cn:2379";
+    private String service = "testService";
+    private String ip = "192.168.2.26";
+    private int port = 1111;
 
     @BeforeClass
     public static void before() {
@@ -40,7 +40,7 @@ public class EtcdRegistryImplTest {
         EtcdRegistryImpl etcdRegister = new EtcdRegistryImpl();
         etcdRegister.init(endpoint);
 
-        List<Service> serviceList = etcdRegister.getServiceList(serevice);
+        List<Service> serviceList = etcdRegister.getServiceList(service);
         System.out.println("before start");
         serviceList.forEach(service -> {
             String serviceName = service.getServiceName();
@@ -52,13 +52,13 @@ public class EtcdRegistryImplTest {
         try {
             for (int i = 0; i < size; i++) {
                 String newIp = ip + ":" + (port + i);
-                etcdRegister.registerService(serevice, newIp);
+                etcdRegister.registerService(service, newIp);
             }
         } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
         }
 
-        serviceList = etcdRegister.getServiceList(serevice);
+        serviceList = etcdRegister.getServiceList(service);
         System.out.println("after start");
         serviceList.forEach(service -> {
             String serviceName = service.getServiceName();
@@ -77,13 +77,13 @@ public class EtcdRegistryImplTest {
         try {
             for (int i = 0; i < size; i++) {
                 String newIp = ip + ":" + (port + i);
-                etcdRegister.registerService(serevice, newIp);
+                etcdRegister.registerService(service, newIp);
             }
         } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
         }
 
-        List<Service> serviceList = etcdRegister.getServiceList(serevice);
+        List<Service> serviceList = etcdRegister.getServiceList(service);
         System.out.println("after start");
         serviceList.forEach(service -> {
             String serviceName = service.getServiceName();
@@ -95,12 +95,12 @@ public class EtcdRegistryImplTest {
         try {
             for (int i = 0; i < size; i++) {
                 String newIp = ip + ":" + (port + i);
-                etcdRegister.bandService(serevice, newIp);
+                etcdRegister.bandService(service, newIp);
             }
         } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
         }
-        serviceList = etcdRegister.getServiceList(serevice);
+        serviceList = etcdRegister.getServiceList(service);
         System.out.println("band start");
         serviceList.forEach(service -> {
             String serviceName = service.getServiceName();

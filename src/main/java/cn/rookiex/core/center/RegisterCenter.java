@@ -41,6 +41,8 @@ public interface RegisterCenter {
      * */
     List<Service> getServiceList(String serviceName);
 
+    List<Service> getServiceListWithUnWork(String serviceName);
+
     /**
      * 添加service节点
      * */
