@@ -21,6 +21,11 @@ public interface Registry {
     List<Service> getServiceList(String serviceName, boolean usePrefix);
 
     /**
+     * 获得serviceName下的所有服务,默认开启前缀条件
+     * */
+    List<Service> getServiceList(String serviceName);
+
+    /**
      * 注册服务
      * */
     void registerService(String serviceName,String ip) throws ExecutionException, InterruptedException;
@@ -36,7 +41,17 @@ public interface Registry {
     void watch(String serviceName, boolean usePrefix, RegisterCenter center);
 
     /**
+     * 监听服务,默认开启前缀条件
+     * */
+    void watch(String serviceName,RegisterCenter center);
+
+    /**
      * 取消监听服务
      * */
     void unWatch(String serviceName, boolean usePrefix);
+
+    /**
+     * 取消监听服务,默认开启前缀条件
+     * */
+    void unWatch(String serviceName);
 }

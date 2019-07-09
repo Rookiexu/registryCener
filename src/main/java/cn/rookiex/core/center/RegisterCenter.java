@@ -27,9 +27,19 @@ public interface RegisterCenter {
     void watch(String serviceName,boolean usePrefix);
 
     /**
+     * 订阅服务,默认使用前缀
+     * */
+    void watch(String serviceName);
+
+    /**
      * 取消订阅服务
      * */
     void unWatch(String serviceName,boolean usePrefix);
+
+    /**
+     * 取消订阅服务,默认使用前缀
+     * */
+    void unWatch(String serviceName);
 
     /**
      * 获得随机的service节点
@@ -66,4 +76,9 @@ public interface RegisterCenter {
      * 初始化关注的服务
      * */
     void initService(String serviceName,boolean usePrefix);
+
+    /**
+     * 初始化关注的服务,默认使用前缀
+     * */
+    void initService(String serviceName);
 }

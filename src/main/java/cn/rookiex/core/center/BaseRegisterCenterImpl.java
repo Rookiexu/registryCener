@@ -62,9 +62,29 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
         registry.watch(serviceName, usePrefix, this);
     }
 
+    /**
+     * 订阅服务,默认使用前缀
+     *
+     * @param serviceName
+     */
+    @Override
+    public void watch(String serviceName) {
+        this.watch(serviceName,true);
+    }
+
     @Override
     public void unWatch(String serviceName,boolean usePrefix) {
         registry.unWatch(serviceName, usePrefix);
+    }
+
+    /**
+     * 取消订阅服务,默认使用前缀
+     *
+     * @param serviceName
+     */
+    @Override
+    public void unWatch(String serviceName) {
+        this.unWatch(serviceName,true);
     }
 
     @Override
@@ -131,5 +151,15 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
     public void initService(String serviceName,boolean usePrefix){
         List<Service> serviceList = registry.getServiceList(serviceName, usePrefix);
         serviceList.forEach(this::addService);
+    }
+
+    /**
+     * 初始化关注的服务,默认使用前缀
+     *
+     * @param serviceName
+     */
+    @Override
+    public void initService(String serviceName) {
+        this.initService(serviceName,true);
     }
 }

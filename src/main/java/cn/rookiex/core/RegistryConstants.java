@@ -7,4 +7,5 @@ package cn.rookiex.core;
  */
 public class RegistryConstants {
     public static final String SEPARATOR = "_";
+    public static final boolean USE_PREFIX = true;
 }

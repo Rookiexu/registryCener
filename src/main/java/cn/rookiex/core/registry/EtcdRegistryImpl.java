@@ -71,8 +71,12 @@ public class EtcdRegistryImpl implements Registry {
         List<Service> serviceList = Lists.newCopyOnWriteArrayList();
         try {
             ByteSequence seqKey = ByteSequence.fromString(serviceName);
-            GetResponse response = kvClient.get(seqKey, GetOption.newBuilder().withPrefix(ByteSequence.fromString(serviceName)).build()
-            ).get();
+            GetResponse response;
+            if (usePrefix) {
+                response = kvClient.get(seqKey, GetOption.newBuilder().withPrefix(ByteSequence.fromString(serviceName)).build()).get();
+            } else {
+                response = kvClient.get(seqKey).get();
+            }
             List<KeyValue> kvs = response.getKvs();
             kvs.forEach(keyValue -> {
                 ByteSequence key = keyValue.getKey();
@@ -88,6 +92,16 @@ public class EtcdRegistryImpl implements Registry {
             e.printStackTrace();
         }
         return serviceList;
+    }
+
+    /**
+     * 获得serviceName下的所有服务,默认开启前缀条件
+     *
+     * @param serviceName
+     */
+    @Override
+    public List<Service> getServiceList(String serviceName) {
+        return this.getServiceList(serviceName, RegistryConstants.USE_PREFIX);
     }
 
     /**
@@ -160,8 +174,33 @@ public class EtcdRegistryImpl implements Registry {
         dealWatch(serviceName, usePrefix, center);
     }
 
+    /**
+     * 监听服务,默认开启前缀条件
+     *
+     * @param serviceName
+     * @param center
+     */
+    @Override
+    public void watch(String serviceName, RegisterCenter center) {
+        this.watch(serviceName, RegistryConstants.USE_PREFIX, center);
+    }
+
     @Override
     public void unWatch(String serviceName, boolean usePrefix) {
+        watchServiceMap.forEach((k,v)->{
+            if (k.startsWith(serviceName)){
+                watchServiceMap.remove(k);
+            }
+        });
+    }
+
+    /**
+     * 取消监听服务,默认开启前缀条件
+     *
+     * @param serviceName
+     */
+    @Override
+    public void unWatch(String serviceName) {
         watchServiceMap.remove(serviceName);
     }
 

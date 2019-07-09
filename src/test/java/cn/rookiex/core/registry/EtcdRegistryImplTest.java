@@ -42,7 +42,7 @@ public class EtcdRegistryImplTest {
         EtcdRegistryImpl etcdRegister = new EtcdRegistryImpl();
         etcdRegister.init(endpoint);
 
-        List<Service> serviceList = etcdRegister.getServiceList(service, usePrefix);
+        List<Service> serviceList = etcdRegister.getServiceList(service, true);
         System.out.println("before start");
         serviceList.forEach(service -> {
             String serviceName = service.getServiceName();
@@ -60,7 +60,7 @@ public class EtcdRegistryImplTest {
             e.printStackTrace();
         }
 
-        serviceList = etcdRegister.getServiceList(service, usePrefix);
+        serviceList = etcdRegister.getServiceList(service, true);
         System.out.println("after start");
         serviceList.forEach(service -> {
             String serviceName = service.getServiceName();
@@ -93,7 +93,7 @@ public class EtcdRegistryImplTest {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            serviceList = etcdRegister.getServiceList(service, usePrefix);
+            serviceList = etcdRegister.getServiceList(service);
             log.info("after start");
             serviceList.forEach(service -> {
                 String serviceName = service.getServiceName();
@@ -118,7 +118,7 @@ public class EtcdRegistryImplTest {
             e.printStackTrace();
         }
 
-        List<Service> serviceList = etcdRegister.getServiceList(service, usePrefix);
+        List<Service> serviceList = etcdRegister.getServiceList(service);
         System.out.println("after start");
         serviceList.forEach(service -> {
             String serviceName = service.getServiceName();
@@ -135,7 +135,7 @@ public class EtcdRegistryImplTest {
         } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
         }
-        serviceList = etcdRegister.getServiceList(service, usePrefix);
+        serviceList = etcdRegister.getServiceList(service);
         System.out.println("band start");
         serviceList.forEach(service -> {
             String serviceName = service.getServiceName();
