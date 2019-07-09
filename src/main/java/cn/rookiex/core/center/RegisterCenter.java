@@ -24,12 +24,12 @@ public interface RegisterCenter {
     /**
      * 订阅服务
      * */
-    void watch(String serviceName);
+    void watch(String serviceName,boolean usePrefix);
 
     /**
      * 取消订阅服务
      * */
-    void unWatch(String serviceName);
+    void unWatch(String serviceName,boolean usePrefix);
 
     /**
      * 获得随机的service节点
@@ -61,4 +61,9 @@ public interface RegisterCenter {
     void checkServiceState();
 
     void addService(ServiceUpdateEvent event);
+
+    /**
+     * 初始化关注的服务
+     * */
+    void initService(String serviceName,boolean usePrefix);
 }

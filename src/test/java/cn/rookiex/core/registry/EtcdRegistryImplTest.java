@@ -42,7 +42,7 @@ public class EtcdRegistryImplTest {
         EtcdRegistryImpl etcdRegister = new EtcdRegistryImpl();
         etcdRegister.init(endpoint);
 
-        List<Service> serviceList = etcdRegister.getServiceList(service);
+        List<Service> serviceList = etcdRegister.getServiceList(service, usePrefix);
         System.out.println("before start");
         serviceList.forEach(service -> {
             String serviceName = service.getServiceName();
@@ -60,7 +60,7 @@ public class EtcdRegistryImplTest {
             e.printStackTrace();
         }
 
-        serviceList = etcdRegister.getServiceList(service);
+        serviceList = etcdRegister.getServiceList(service, usePrefix);
         System.out.println("after start");
         serviceList.forEach(service -> {
             String serviceName = service.getServiceName();
@@ -87,13 +87,13 @@ public class EtcdRegistryImplTest {
             e.printStackTrace();
         }
 
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 1; i++) {
             try {
-                Thread.sleep(10000);
+                Thread.sleep(10);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            serviceList = etcdRegister.getServiceList(service);
+            serviceList = etcdRegister.getServiceList(service, usePrefix);
             log.info("after start");
             serviceList.forEach(service -> {
                 String serviceName = service.getServiceName();
@@ -118,7 +118,7 @@ public class EtcdRegistryImplTest {
             e.printStackTrace();
         }
 
-        List<Service> serviceList = etcdRegister.getServiceList(service);
+        List<Service> serviceList = etcdRegister.getServiceList(service, usePrefix);
         System.out.println("after start");
         serviceList.forEach(service -> {
             String serviceName = service.getServiceName();
@@ -135,7 +135,7 @@ public class EtcdRegistryImplTest {
         } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
         }
-        serviceList = etcdRegister.getServiceList(service);
+        serviceList = etcdRegister.getServiceList(service, usePrefix);
         System.out.println("band start");
         serviceList.forEach(service -> {
             String serviceName = service.getServiceName();

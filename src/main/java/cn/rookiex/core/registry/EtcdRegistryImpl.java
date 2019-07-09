@@ -64,9 +64,10 @@ public class EtcdRegistryImpl implements Registry {
      * 获取服务信息
      *
      * @param serviceName 服务名字
+     * @param usePrefix
      */
     @Override
-    public List<Service> getServiceList(String serviceName) {
+    public List<Service> getServiceList(String serviceName, boolean usePrefix) {
         List<Service> serviceList = Lists.newCopyOnWriteArrayList();
         try {
             ByteSequence seqKey = ByteSequence.fromString(serviceName);
@@ -150,21 +151,21 @@ public class EtcdRegistryImpl implements Registry {
     }
 
     @Override
-    public void watch(String serviceName, RegisterCenter center) {
+    public void watch(String serviceName, boolean usePrefix, RegisterCenter center) {
         if (center == null) {
             logger.warn("watch service -> " + serviceName + " ,center is null !!!!!!!!!!");
             return;
         }
         watchServiceMap.put(serviceName, center);
-        watch(serviceName, true, center);
+        dealWatch(serviceName, usePrefix, center);
     }
 
     @Override
-    public void unWatch(String serviceName) {
+    public void unWatch(String serviceName, boolean usePrefix) {
         watchServiceMap.remove(serviceName);
     }
 
-    private void watch(String serviceName, Boolean usePrefix, RegisterCenter center) {
+    private void dealWatch(String serviceName, Boolean usePrefix, RegisterCenter center) {
         executorService.execute(() -> {
             try {
                 Watch.Watcher watcher;
@@ -180,7 +181,7 @@ public class EtcdRegistryImpl implements Registry {
             }
             RegisterCenter registerCenter = watchServiceMap.get(serviceName);
             if (registerCenter != null)
-                this.watch(serviceName, usePrefix, registerCenter);
+                this.dealWatch(serviceName, usePrefix, registerCenter);
         });
     }
 

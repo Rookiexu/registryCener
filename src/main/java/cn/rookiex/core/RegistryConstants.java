@@ -6,5 +6,5 @@ package cn.rookiex.core;
  * @Describe :
  */
 public class RegistryConstants {
-    public static final String SEPARATOR = "/";
+    public static final String SEPARATOR = "_";
 }

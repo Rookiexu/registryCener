@@ -101,4 +101,19 @@ public abstract class BaseServiceImpl implements Service {
         this.fullPath = fullPath;
     }
 
+    public String getPath() {
+        return path;
+    }
+
+    public void setPath(String path) {
+        this.path = path;
+    }
+
+    public long getLease() {
+        return lease;
+    }
+
+    public void setLease(long lease) {
+        this.lease = lease;
+    }
 }

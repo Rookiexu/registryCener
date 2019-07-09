@@ -68,7 +68,6 @@ public class EtcdRegisterCenterImpl extends BaseRegisterCenterImpl {
             if (serviceMap != null) {
                 serviceMap.values().forEach(service -> {
                     if (!service.isActive() || service.isBanned()) {
-                        serviceMap.remove(service.getFullPath());
                         errServiceMap.put(service.getFullPath(), service);
                     }
                 });

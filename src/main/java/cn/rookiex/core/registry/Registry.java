@@ -18,7 +18,7 @@ public interface Registry {
     /**
      * 获得serviceName下的所有服务
      * */
-    List<Service> getServiceList(String serviceName);
+    List<Service> getServiceList(String serviceName, boolean usePrefix);
 
     /**
      * 注册服务
@@ -33,10 +33,10 @@ public interface Registry {
     /**
      * 监听服务
      * */
-    void watch(String serviceName, RegisterCenter center);
+    void watch(String serviceName, boolean usePrefix, RegisterCenter center);
 
     /**
      * 取消监听服务
      * */
-    void unWatch(String serviceName);
+    void unWatch(String serviceName, boolean usePrefix);
 }

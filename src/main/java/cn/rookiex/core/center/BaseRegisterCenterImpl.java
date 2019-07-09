@@ -58,13 +58,13 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
     }
 
     @Override
-    public void watch(String serviceName) {
-        registry.watch(serviceName, this);
+    public void watch(String serviceName,boolean usePrefix) {
+        registry.watch(serviceName, usePrefix, this);
     }
 
     @Override
-    public void unWatch(String serviceName) {
-        registry.unWatch(serviceName);
+    public void unWatch(String serviceName,boolean usePrefix) {
+        registry.unWatch(serviceName, usePrefix);
     }
 
     @Override
@@ -125,5 +125,11 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
 
     public static void setFactory(ServiceFactory factory) {
         BaseRegisterCenterImpl.factory = factory;
+    }
+
+    @Override
+    public void initService(String serviceName,boolean usePrefix){
+        List<Service> serviceList = registry.getServiceList(serviceName, usePrefix);
+        serviceList.forEach(this::addService);
     }
 }
