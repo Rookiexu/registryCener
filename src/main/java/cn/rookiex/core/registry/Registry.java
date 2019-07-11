@@ -5,6 +5,7 @@ import cn.rookiex.core.service.Service;
 
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 
 /**
  * @Author : Rookiex
@@ -14,6 +15,8 @@ import java.util.concurrent.ExecutionException;
 public interface Registry {
 
     void init(String url);
+
+    void init(String url, String user, String password);
 
     /**
      * 获得serviceName下的所有服务
@@ -28,12 +31,12 @@ public interface Registry {
     /**
      * 注册服务
      * */
-    void registerService(String serviceName,String ip) throws ExecutionException, InterruptedException;
+    void registerService(String serviceName,String ip) throws ExecutionException, InterruptedException, TimeoutException;
 
     /**
      * 屏蔽服务
      * */
-    void bandService(String serviceName,String ip) throws ExecutionException, InterruptedException;
+    void bandService(String serviceName,String ip) throws ExecutionException, InterruptedException, TimeoutException;
 
     /**
      * 监听服务

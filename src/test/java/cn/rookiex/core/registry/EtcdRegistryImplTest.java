@@ -9,6 +9,7 @@ import org.junit.Test;
 
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 
 /**
  * @Author : Rookiex
@@ -23,6 +24,10 @@ public class EtcdRegistryImplTest {
     private String ip = "192.168.2.26";
     private int port = 1111;
 
+    private String endpoints = "http://47.91.94.187:2380;http://47.91.94.56:2380;http://47.91.92.234:2380";
+    private String userName = "root";
+    private String password = "DyZxI19s8FNd";
+
     @BeforeClass
     public static void before() {
         EtcdRegisterCenterImpl.setFactory(new EtcdServiceFactoryImpl());
@@ -30,18 +35,12 @@ public class EtcdRegistryImplTest {
 
     @Test
     public void init() {
-    }
-
-    @Test
-    public void getServiceList() {
-    }
-
-    @Test
-    public void registerService() {
-        int size = 5;
         EtcdRegistryImpl etcdRegister = new EtcdRegistryImpl();
-        etcdRegister.init(endpoint);
+        etcdRegister.init(endpoints,userName,password);
+        dealRegisterService(etcdRegister,1);
+    }
 
+    private void dealRegisterService(EtcdRegistryImpl etcdRegister, int size) {
         List<Service> serviceList = etcdRegister.getServiceList(service, true);
         System.out.println("before start");
         serviceList.forEach(service -> {
@@ -56,7 +55,7 @@ public class EtcdRegistryImplTest {
                 String newIp = ip + ":" + (port + i);
                 etcdRegister.registerService(service, newIp);
             }
-        } catch (ExecutionException | InterruptedException e) {
+        } catch (ExecutionException | InterruptedException | TimeoutException e) {
             e.printStackTrace();
         }
 
@@ -68,6 +67,19 @@ public class EtcdRegistryImplTest {
             System.out.println("after path ==> " + fullPath + " ,name ==> " + serviceName + " serverIsBand ==> " + service.isBanned());
         });
         System.out.println("after over");
+    }
+
+    @Test
+    public void getServiceList() {
+    }
+
+    @Test
+    public void registerService() {
+        int size = 5;
+        EtcdRegistryImpl etcdRegister = new EtcdRegistryImpl();
+        etcdRegister.init(endpoint);
+
+        dealRegisterService(etcdRegister,size);
 
     }
 
@@ -83,7 +95,7 @@ public class EtcdRegistryImplTest {
                 String newIp = ip + ":" + (port + i);
                 etcdRegister.registerService(service, newIp);
             }
-        } catch (ExecutionException | InterruptedException e) {
+        } catch (ExecutionException | InterruptedException | TimeoutException e) {
             e.printStackTrace();
         }
 
@@ -114,7 +126,7 @@ public class EtcdRegistryImplTest {
                 String newIp = ip + ":" + (port + i);
                 etcdRegister.registerService(service, newIp);
             }
-        } catch (ExecutionException | InterruptedException e) {
+        } catch (ExecutionException | InterruptedException | TimeoutException e) {
             e.printStackTrace();
         }
 
@@ -132,7 +144,7 @@ public class EtcdRegistryImplTest {
                 String newIp = ip + ":" + (port + i);
                 etcdRegister.bandService(service, newIp);
             }
-        } catch (ExecutionException | InterruptedException e) {
+        } catch (ExecutionException | InterruptedException | TimeoutException e) {
             e.printStackTrace();
         }
         serviceList = etcdRegister.getServiceList(service);

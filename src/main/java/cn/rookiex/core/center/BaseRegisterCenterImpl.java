@@ -12,6 +12,7 @@ import org.apache.log4j.Logger;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 /**
@@ -41,7 +42,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
                 serviceName = serviceName + RegistryConstants.SEPARATOR;
             }
             registry.registerService(serviceName, ip);
-        } catch (ExecutionException | InterruptedException e) {
+        } catch (ExecutionException | InterruptedException | TimeoutException e) {
             e.printStackTrace();
         }
     }
@@ -59,7 +60,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
                 serviceName = serviceName + RegistryConstants.SEPARATOR;
             }
             registry.bandService(serviceName, ip);
-        } catch (ExecutionException | InterruptedException e) {
+        } catch (ExecutionException | InterruptedException | TimeoutException e) {
             e.printStackTrace();
         }
     }

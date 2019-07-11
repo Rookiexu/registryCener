@@ -23,6 +23,8 @@ import cn.rookiex.core.RegistryConstants;
 import cn.rookiex.core.service.Service;
 import org.apache.log4j.Logger;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -50,10 +52,36 @@ public class EtcdRegistryImpl implements Registry {
     private boolean keepAlive = true;
 
     private Map<String, RegisterCenter> watchServiceMap = Maps.newConcurrentMap();
+    private static final int ETCD_TIME_OUT = 30000;
 
     @Override
     public void init(String url) {
-        Client client = Client.builder().endpoints(url).build();
+        String[] urls = url.split(";");
+        List<String> urlList = Lists.newArrayList();
+        Client client;
+        if (urls.length > 1) {
+            urlList.addAll(Arrays.asList(urls));
+            client = Client.builder().endpoints(urlList).build();
+        } else {
+            client = Client.builder().endpoints(url).build();
+        }
+        this.leaseClient = client.getLeaseClient();
+        this.kvClient = client.getKVClient();
+        this.watchClient = client.getWatchClient();
+        executorService = Executors.newCachedThreadPool();
+    }
+
+    @Override
+    public void init(String url, String user, String password) {
+        String[] urls = url.split(";");
+        List<String> urlList = Lists.newArrayList();
+        Client client;
+        if (urls.length > 1) {
+            urlList.addAll(Arrays.asList(urls));
+            client = Client.builder().endpoints(urlList).authority(user).password(ByteSequence.fromString(password)).build();
+        } else {
+            client = Client.builder().endpoints(url).authority(user).password(ByteSequence.fromString(password)).build();
+        }
         this.leaseClient = client.getLeaseClient();
         this.kvClient = client.getKVClient();
         this.watchClient = client.getWatchClient();
@@ -73,9 +101,9 @@ public class EtcdRegistryImpl implements Registry {
             ByteSequence seqKey = ByteSequence.fromString(serviceName);
             GetResponse response;
             if (usePrefix) {
-                response = kvClient.get(seqKey, GetOption.newBuilder().withPrefix(ByteSequence.fromString(serviceName)).build()).get();
+                response = kvClient.get(seqKey, GetOption.newBuilder().withPrefix(ByteSequence.fromString(serviceName)).build()).get(ETCD_TIME_OUT, TimeUnit.MILLISECONDS);
             } else {
-                response = kvClient.get(seqKey).get();
+                response = kvClient.get(seqKey).get(ETCD_TIME_OUT, TimeUnit.MILLISECONDS);
             }
             List<KeyValue> kvs = response.getKvs();
             kvs.forEach(keyValue -> {
@@ -88,7 +116,7 @@ public class EtcdRegistryImpl implements Registry {
                     serviceList.add(service);
             });
             return serviceList;
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
             e.printStackTrace();
         }
         return serviceList;
@@ -111,12 +139,12 @@ public class EtcdRegistryImpl implements Registry {
      * @param ip          地址
      */
     @Override
-    public void registerService(String serviceName, String ip) throws ExecutionException, InterruptedException {
+    public void registerService(String serviceName, String ip) throws ExecutionException, InterruptedException, TimeoutException {
         ByteSequence key = getServiceKey(serviceName, ip);
         ByteSequence val = ByteSequence.fromString(OPEN);
         LeaseGrantResponse leaseGrantResponse = leaseClient.grant(TTL_TIME).get();
         leaseId = leaseGrantResponse.getID();
-        kvClient.put(key, val, PutOption.newBuilder().withLeaseId(leaseId).build()).get();
+        kvClient.put(key, val, PutOption.newBuilder().withLeaseId(leaseId).build()).get(ETCD_TIME_OUT, TimeUnit.MILLISECONDS);
         keepAlive();
     }
 
@@ -131,10 +159,10 @@ public class EtcdRegistryImpl implements Registry {
      * @param ip          地址
      */
     @Override
-    public void bandService(String serviceName, String ip) throws ExecutionException, InterruptedException {
+    public void bandService(String serviceName, String ip) throws ExecutionException, InterruptedException, TimeoutException {
         ByteSequence key = getServiceKey(serviceName, ip);
         ByteSequence val = ByteSequence.fromString(BAN);
-        kvClient.put(key, val).get();
+        kvClient.put(key, val).get(ETCD_TIME_OUT, TimeUnit.MILLISECONDS);
         keepAlive();
     }
 
@@ -186,8 +214,8 @@ public class EtcdRegistryImpl implements Registry {
 
     @Override
     public void unWatch(String serviceName, boolean usePrefix) {
-        watchServiceMap.forEach((k,v)->{
-            if (k.startsWith(serviceName)){
+        watchServiceMap.forEach((k, v) -> {
+            if (k.startsWith(serviceName)) {
                 watchServiceMap.remove(k);
             }
         });
