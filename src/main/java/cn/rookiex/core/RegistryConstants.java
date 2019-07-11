@@ -6,6 +6,7 @@ package cn.rookiex.core;
  * @Describe :
  */
 public class RegistryConstants {
-    public static final String SEPARATOR = "_";
+    public static final String SEPARATOR = "/";
+    // 以后不要使用布尔值判断了,改用枚举作为配置
     public static final boolean USE_PREFIX = true;
 }

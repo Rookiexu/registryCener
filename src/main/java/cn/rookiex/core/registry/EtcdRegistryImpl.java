@@ -154,8 +154,7 @@ public class EtcdRegistryImpl implements Registry {
                 try {
                     CompletableFuture<LeaseKeepAliveResponse> responseCompletableFuture = leaseClient.keepAliveOnce(leaseId);
                     LeaseKeepAliveResponse leaseKeepAliveResponse = responseCompletableFuture.get();
-
-                    logger.info("KeepAlive  ttl == " + leaseKeepAliveResponse.getTTL() + " lease:" + leaseKeepAliveResponse.getID()
+                    logger.debug("KeepAlive  ttl == " + leaseKeepAliveResponse.getTTL() + " lease:" + leaseKeepAliveResponse.getID()
                             + "; Hex format:" + Long.toHexString(leaseKeepAliveResponse.getID()));
                 } catch (Exception e) {
                     logger.error(e.getMessage(), e);

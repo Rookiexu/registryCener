@@ -8,7 +8,7 @@ import org.apache.log4j.Logger;
  * @Date : 2019/07/08
  * @Describe :
  */
-public abstract class BaseServiceImpl implements Service {
+public abstract class BaseServiceImpl  implements Service  {
     Logger log = Logger.getLogger(getClass());
 
     private String fullPath;
