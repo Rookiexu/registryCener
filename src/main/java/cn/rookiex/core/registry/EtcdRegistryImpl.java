@@ -113,7 +113,7 @@ public class EtcdRegistryImpl implements Registry {
      * 获取服务信息
      *
      * @param serviceName 服务名字
-     * @param usePrefix
+     * @param usePrefix   是否使用前缀
      */
     @Override
     public List<Service> getServiceList(String serviceName, boolean usePrefix) {
@@ -146,7 +146,7 @@ public class EtcdRegistryImpl implements Registry {
     /**
      * 获得serviceName下的所有服务,默认开启前缀条件
      *
-     * @param serviceName
+     * @param serviceName serviceName
      */
     @Override
     public List<Service> getServiceList(String serviceName) {
@@ -165,7 +165,7 @@ public class EtcdRegistryImpl implements Registry {
         setIp(ip);
         this.isOpen = OPEN;
         ByteSequence key = getServiceKey(serviceName, ip);
-        ByteSequence val = ByteSequence.fromString(OPEN);
+        ByteSequence val = ByteSequence.fromString(isOpen);
         LeaseGrantResponse leaseGrantResponse = leaseClient.grant(TTL_TIME).get();
         leaseId = leaseGrantResponse.getID();
         kvClient.put(key, val, PutOption.newBuilder().withLeaseId(leaseId).build()).get(ETCD_TIME_OUT, TimeUnit.MILLISECONDS);
@@ -199,7 +199,7 @@ public class EtcdRegistryImpl implements Registry {
     /**
      * 发送心跳到ETCD,表明该host是活着的
      */
-    public void keepAlive() {
+    private void keepAlive() {
         if (keepAliveService != null)
             keepAliveService.shutdown();
         keepAliveService = Executors.newSingleThreadScheduledExecutor();
@@ -211,7 +211,7 @@ public class EtcdRegistryImpl implements Registry {
                     try {
                         registerService(getServiceName(), getIp());
                     } catch (ExecutionException | InterruptedException | TimeoutException e1) {
-                        logger.error(e1.getMessage(), e1);
+                        logger.error("重试注册服务器出现异常 ", e1);
                     }
                 } else {
                     try {
@@ -241,8 +241,8 @@ public class EtcdRegistryImpl implements Registry {
     /**
      * 监听服务,默认开启前缀条件
      *
-     * @param serviceName
-     * @param center
+     * @param serviceName serviceName
+     * @param center      center
      */
     @Override
     public void watch(String serviceName, RegisterCenter center) {
@@ -261,7 +261,7 @@ public class EtcdRegistryImpl implements Registry {
     /**
      * 取消监听服务,默认开启前缀条件
      *
-     * @param serviceName
+     * @param serviceName serviceName
      */
     @Override
     public void unWatch(String serviceName) {
