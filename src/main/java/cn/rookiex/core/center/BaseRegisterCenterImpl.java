@@ -1,5 +1,6 @@
 package cn.rookiex.core.center;
 
+import cn.rookiex.core.RegistryConstants;
 import cn.rookiex.core.factory.ServiceFactory;
 import cn.rookiex.core.registry.Registry;
 import cn.rookiex.core.service.Service;
@@ -36,6 +37,9 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
     @Override
     public void register(String serviceName, String ip) {
         try {
+            if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
+                serviceName = serviceName + RegistryConstants.SEPARATOR;
+            }
             registry.registerService(serviceName, ip);
         } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
@@ -51,6 +55,9 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
     @Override
     public void unRegister(String serviceName, String ip) {
         try {
+            if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
+                serviceName = serviceName + RegistryConstants.SEPARATOR;
+            }
             registry.bandService(serviceName, ip);
         } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
@@ -58,7 +65,10 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
     }
 
     @Override
-    public void watch(String serviceName,boolean usePrefix) {
+    public void watch(String serviceName, boolean usePrefix) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
+            serviceName = serviceName + RegistryConstants.SEPARATOR;
+        }
         registry.watch(serviceName, usePrefix, this);
     }
 
@@ -69,11 +79,14 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
      */
     @Override
     public void watch(String serviceName) {
-        this.watch(serviceName,true);
+        this.watch(serviceName, true);
     }
 
     @Override
-    public void unWatch(String serviceName,boolean usePrefix) {
+    public void unWatch(String serviceName, boolean usePrefix) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
+            serviceName = serviceName + RegistryConstants.SEPARATOR;
+        }
         registry.unWatch(serviceName, usePrefix);
     }
 
@@ -84,11 +97,14 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
      */
     @Override
     public void unWatch(String serviceName) {
-        this.unWatch(serviceName,true);
+        this.unWatch(serviceName, true);
     }
 
     @Override
     public Service getRandomService(String serviceName) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
+            serviceName = serviceName + RegistryConstants.SEPARATOR;
+        }
         Map<String, Service> stringServiceMap = serviceMapMap.get(serviceName);
         if (stringServiceMap == null) {
             return null;
@@ -98,6 +114,9 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
 
     @Override
     public List<Service> getServiceList(String serviceName) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
+            serviceName = serviceName + RegistryConstants.SEPARATOR;
+        }
         Map<String, Service> stringServiceMap = serviceMapMap.get(serviceName);
         return stringServiceMap != null ? Lists.newArrayList(stringServiceMap.values()
                 .stream().filter(service -> !service.isBanned() && service.isActive()).collect(Collectors.toList())
@@ -106,6 +125,9 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
 
     @Override
     public List<Service> getServiceListWithUnWork(String serviceName) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
+            serviceName = serviceName + RegistryConstants.SEPARATOR;
+        }
         Map<String, Service> stringServiceMap = serviceMapMap.get(serviceName);
         return stringServiceMap != null ? Lists.newArrayList(stringServiceMap.values()) : Lists.newArrayList();
     }
@@ -148,7 +170,10 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
     }
 
     @Override
-    public void initService(String serviceName,boolean usePrefix){
+    public void initService(String serviceName, boolean usePrefix) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
+            serviceName = serviceName + RegistryConstants.SEPARATOR;
+        }
         List<Service> serviceList = registry.getServiceList(serviceName, usePrefix);
         serviceList.forEach(this::addService);
     }
@@ -160,6 +185,6 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
      */
     @Override
     public void initService(String serviceName) {
-        this.initService(serviceName,true);
+        this.initService(serviceName, true);
     }
 }

@@ -21,7 +21,7 @@ public abstract class BaseServiceImpl  implements Service  {
     public BaseServiceImpl(String fullPath, boolean banned, long lease) {
         String[] split = fullPath.split(RegistryConstants.SEPARATOR);
         this.fullPath = fullPath;
-        this.serviceName = split[0];
+        this.serviceName = split[0] + RegistryConstants.SEPARATOR;
         this.banned = banned;
         this.lease = lease;
         this.path = split[1];
