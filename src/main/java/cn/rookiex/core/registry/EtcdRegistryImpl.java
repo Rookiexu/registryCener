@@ -1,6 +1,9 @@
 package cn.rookiex.core.registry;
 
+import cn.rookiex.core.RegistryConstants;
 import cn.rookiex.core.center.EtcdRegisterCenterImpl;
+import cn.rookiex.core.center.RegisterCenter;
+import cn.rookiex.core.service.Service;
 import cn.rookiex.core.updateEvent.EtcdServiceUpdateEventImpl;
 import cn.rookiex.core.updateEvent.ServiceUpdateEvent;
 import com.coreos.jetcd.Client;
@@ -18,12 +21,8 @@ import com.coreos.jetcd.options.WatchOption;
 import com.coreos.jetcd.watch.WatchEvent;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import cn.rookiex.core.center.RegisterCenter;
-import cn.rookiex.core.RegistryConstants;
-import cn.rookiex.core.service.Service;
 import org.apache.log4j.Logger;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -42,14 +41,36 @@ public class EtcdRegistryImpl implements Registry {
     private long leaseId = 0;
 
     private Logger logger = Logger.getLogger(getClass());
-
+    /**
+     * 本机注册的租约
+     */
     private Lease leaseClient;
+    /**
+     * 本机注册的服务名字
+     */
+    private String serviceName;
+    /**
+     * 本级注册的ip
+     */
+    private String ip;
+    /**
+     * 服务开启状态
+     */
+    private String isOpen = OPEN;
+    /**
+     * 心跳开关
+     */
+    private volatile boolean keepAlive = true;
+    /**
+     * 注册状态开关
+     */
+    private volatile boolean registryOK = false;
+
     private KV kvClient;
     private Watch watchClient;
 
     private ScheduledExecutorService keepAliveService;
     private ExecutorService executorService;
-    private boolean keepAlive = true;
 
     private Map<String, RegisterCenter> watchServiceMap = Maps.newConcurrentMap();
     private static final int ETCD_TIME_OUT = 30000;
@@ -140,12 +161,16 @@ public class EtcdRegistryImpl implements Registry {
      */
     @Override
     public void registerService(String serviceName, String ip) throws ExecutionException, InterruptedException, TimeoutException {
+        setServiceName(serviceName);
+        setIp(ip);
+        this.isOpen = OPEN;
         ByteSequence key = getServiceKey(serviceName, ip);
         ByteSequence val = ByteSequence.fromString(OPEN);
         LeaseGrantResponse leaseGrantResponse = leaseClient.grant(TTL_TIME).get();
         leaseId = leaseGrantResponse.getID();
         kvClient.put(key, val, PutOption.newBuilder().withLeaseId(leaseId).build()).get(ETCD_TIME_OUT, TimeUnit.MILLISECONDS);
         keepAlive();
+        registryOK = true;
     }
 
     private ByteSequence getServiceKey(String serviceName, String ip) {
@@ -160,6 +185,7 @@ public class EtcdRegistryImpl implements Registry {
      */
     @Override
     public void bandService(String serviceName, String ip) throws ExecutionException, InterruptedException, TimeoutException {
+        this.isOpen = BAN;
         ByteSequence key = getServiceKey(serviceName, ip);
         ByteSequence val = ByteSequence.fromString(BAN);
         kvClient.put(key, val).get(ETCD_TIME_OUT, TimeUnit.MILLISECONDS);
@@ -173,19 +199,30 @@ public class EtcdRegistryImpl implements Registry {
     /**
      * 发送心跳到ETCD,表明该host是活着的
      */
-    private void keepAlive() {
+    public void keepAlive() {
+        if (keepAliveService != null)
+            keepAliveService.shutdown();
         keepAliveService = Executors.newSingleThreadScheduledExecutor();
         keepAliveService.scheduleAtFixedRate(() -> {
             if (!keepAlive) {
                 this.keepAliveService.shutdown();
             } else {
-                try {
-                    CompletableFuture<LeaseKeepAliveResponse> responseCompletableFuture = leaseClient.keepAliveOnce(leaseId);
-                    LeaseKeepAliveResponse leaseKeepAliveResponse = responseCompletableFuture.get();
-                    logger.debug("KeepAlive  ttl == " + leaseKeepAliveResponse.getTTL() + " lease:" + leaseKeepAliveResponse.getID()
-                            + "; Hex format:" + Long.toHexString(leaseKeepAliveResponse.getID()));
-                } catch (Exception e) {
-                    logger.error(e.getMessage(), e);
+                if (registryOK) {
+                    try {
+                        registerService(getServiceName(), getIp());
+                    } catch (ExecutionException | InterruptedException | TimeoutException e1) {
+                        logger.error(e1.getMessage(), e1);
+                    }
+                } else {
+                    try {
+                        CompletableFuture<LeaseKeepAliveResponse> responseCompletableFuture = leaseClient.keepAliveOnce(leaseId);
+                        LeaseKeepAliveResponse leaseKeepAliveResponse = responseCompletableFuture.get();
+                        logger.debug("KeepAlive  ttl == " + leaseKeepAliveResponse.getTTL() + " lease:" + leaseKeepAliveResponse.getID()
+                                + "; Hex format:" + Long.toHexString(leaseKeepAliveResponse.getID()));
+                    } catch (Exception e) {
+                        logger.error(e.getMessage(), e);
+                        registryOK = false;
+                    }
                 }
             }
         }, TTL_TIME / 3, TTL_TIME / 3, TimeUnit.SECONDS);
@@ -276,5 +313,21 @@ public class EtcdRegistryImpl implements Registry {
             }
         });
         center.callback(updateEvents);
+    }
+
+    public String getServiceName() {
+        return serviceName;
+    }
+
+    public void setServiceName(String serviceName) {
+        this.serviceName = serviceName;
+    }
+
+    public String getIp() {
+        return ip;
+    }
+
+    public void setIp(String ip) {
+        this.ip = ip;
     }
 }

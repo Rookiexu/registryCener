@@ -3,13 +3,14 @@ package cn.rookiex.core.registry;
 import cn.rookiex.core.center.EtcdRegisterCenterImpl;
 import cn.rookiex.core.factory.EtcdServiceFactoryImpl;
 import cn.rookiex.core.service.Service;
+import com.coreos.jetcd.lease.LeaseKeepAliveResponse;
 import org.apache.log4j.Logger;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @Author : Rookiex
@@ -36,8 +37,8 @@ public class EtcdRegistryImplTest {
     @Test
     public void init() {
         EtcdRegistryImpl etcdRegister = new EtcdRegistryImpl();
-        etcdRegister.init(endpoints,userName,password);
-        dealRegisterService(etcdRegister,1);
+        etcdRegister.init(endpoints, userName, password);
+        dealRegisterService(etcdRegister, 1);
     }
 
     private void dealRegisterService(EtcdRegistryImpl etcdRegister, int size) {
@@ -79,7 +80,7 @@ public class EtcdRegistryImplTest {
         EtcdRegistryImpl etcdRegister = new EtcdRegistryImpl();
         etcdRegister.init(endpoint);
 
-        dealRegisterService(etcdRegister,size);
+        dealRegisterService(etcdRegister, size);
 
     }
 
@@ -163,5 +164,51 @@ public class EtcdRegistryImplTest {
 
     @Test
     public void unWatch() {
+    }
+
+    @Test
+    public void keepAlive() {
+        testKeepAlive(1);
+        try {
+            Thread.sleep(1000000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static int TTL_TIME = 10;
+    AtomicBoolean atomicBoolean = new AtomicBoolean();
+    ScheduledExecutorService keepAliveService;
+    private void testKeepAlive(int level) {
+         keepAliveService = Executors.newSingleThreadScheduledExecutor();
+        keepAliveService.scheduleAtFixedRate(() -> {
+            try {
+                log.debug("test keep alive == " + level);
+            } catch (Exception e) {
+                log.error(e.getMessage(), e);
+            }
+            if (!atomicBoolean.get())
+                if (atomicBoolean.compareAndSet(false, true)) {
+                    keepAliveService.shutdown();
+                    testKeepAlive(20);
+                }
+
+        }, TTL_TIME / 3, TTL_TIME / 3, TimeUnit.SECONDS);
+    }
+
+    @Test
+    public void getServiceName() {
+    }
+
+    @Test
+    public void setServiceName() {
+    }
+
+    @Test
+    public void getIp() {
+    }
+
+    @Test
+    public void setIp() {
     }
 }
