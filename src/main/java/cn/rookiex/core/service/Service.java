@@ -74,4 +74,8 @@ public interface Service {
      * 服务是否正常
      * */
     boolean isDelete();
+
+     long getVersion();
+
+     void setVersion(long version);
 }

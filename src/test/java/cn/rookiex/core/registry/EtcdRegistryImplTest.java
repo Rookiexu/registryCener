@@ -4,10 +4,12 @@ import cn.rookiex.core.center.EtcdRegisterCenterImpl;
 import cn.rookiex.core.factory.EtcdServiceFactoryImpl;
 import cn.rookiex.core.service.Service;
 import com.coreos.jetcd.lease.LeaseKeepAliveResponse;
+import com.google.common.collect.Lists;
 import org.apache.log4j.Logger;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -25,10 +27,6 @@ public class EtcdRegistryImplTest {
     private String ip = "192.168.2.26";
     private int port = 1111;
 
-    private String endpoints = "http://47.91.94.187:2380;http://47.91.94.56:2380;http://47.91.92.234:2380";
-    private String userName = "root";
-    private String password = "DyZxI19s8FNd";
-
     @BeforeClass
     public static void before() {
         EtcdRegisterCenterImpl.setFactory(new EtcdServiceFactoryImpl());
@@ -37,6 +35,9 @@ public class EtcdRegistryImplTest {
     @Test
     public void init() {
         EtcdRegistryImpl etcdRegister = new EtcdRegistryImpl();
+        String endpoints = "http://47.91.94.187:2380;http://47.91.94.56:2380;http://47.91.92.234:2380";
+        String userName = "root";
+        String password = "DyZxI19s8FNd";
         etcdRegister.init(endpoints, userName, password);
         dealRegisterService(etcdRegister, 1);
     }
@@ -65,20 +66,40 @@ public class EtcdRegistryImplTest {
         serviceList.forEach(service -> {
             String serviceName = service.getServiceName();
             String fullPath = service.getFullPath();
-            System.out.println("after path ==> " + fullPath + " ,name ==> " + serviceName + " serverIsBand ==> " + service.isBanned());
+            System.out.println("after path ==> " + fullPath + " ,name ==> " + serviceName + " serverIsBand ==> " + service.isBanned() + " ,version == " + service.getVersion());
         });
         System.out.println("after over");
     }
 
     @Test
     public void getServiceList() {
+        int size = 1;
+        EtcdRegistryImpl etcdRegister = new EtcdRegistryImpl();
+        etcdRegister.init(endpoint);
+
+        List<Service> data1 = etcdRegister.getServiceList("data1");
+        List<Service> serviceList = etcdRegister.getServiceList("data1-logic");
+        List<Service> publicService = etcdRegister.getServiceList("publicService");
+
+        List<Service> objects = Lists.newArrayList();
+        objects.addAll(data1);
+        objects.addAll(serviceList);
+        objects.addAll(publicService);
+
+        objects.forEach(service->{
+            log.info("service name == "+ service.getServiceName() + " service path == " + service.getFullPath());
+        });
     }
 
     @Test
     public void registerService() {
-        int size = 5;
+        int size = 1;
         EtcdRegistryImpl etcdRegister = new EtcdRegistryImpl();
         etcdRegister.init(endpoint);
+
+        dealRegisterService(etcdRegister, size);
+
+        dealRegisterService(etcdRegister, size);
 
         dealRegisterService(etcdRegister, size);
 
@@ -169,16 +190,11 @@ public class EtcdRegistryImplTest {
     @Test
     public void keepAlive() {
         testKeepAlive(1);
-        try {
-            Thread.sleep(1000000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
     }
 
     private static int TTL_TIME = 10;
-    AtomicBoolean atomicBoolean = new AtomicBoolean();
-    ScheduledExecutorService keepAliveService;
+    private AtomicBoolean atomicBoolean = new AtomicBoolean();
+    private ScheduledExecutorService keepAliveService;
     private void testKeepAlive(int level) {
          keepAliveService = Executors.newSingleThreadScheduledExecutor();
         keepAliveService.scheduleAtFixedRate(() -> {
