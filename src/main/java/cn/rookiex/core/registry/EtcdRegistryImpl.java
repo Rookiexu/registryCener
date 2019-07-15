@@ -250,8 +250,10 @@ public class EtcdRegistryImpl implements Registry {
             return;
         }
         watchServiceListMap.merge(serviceName, watchList, (v1, v2) -> {
-            v1.addAll(v2);
-            return v1;
+            List<WatchServiceLister> list = Lists.newCopyOnWriteArrayList();
+            list.addAll(v1);
+            list.addAll(v2);
+            return list;
         });
         dealWatch(serviceName, usePrefix);
     }
@@ -375,7 +377,7 @@ public class EtcdRegistryImpl implements Registry {
             }
         });
         watchServiceListers.forEach(lister -> {
-            lister.callback(updateEvents);
+            lister.watchCallback(updateEvents);
         });
 
     }

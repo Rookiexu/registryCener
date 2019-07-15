@@ -8,5 +8,5 @@ import java.util.List; /**
  * @Describe :
  */
 public interface WatchServiceLister {
-    void callback(List<ServiceUpdateEvent> updateEvents);
+    void watchCallback(List<ServiceUpdateEvent> updateEvents);
 }

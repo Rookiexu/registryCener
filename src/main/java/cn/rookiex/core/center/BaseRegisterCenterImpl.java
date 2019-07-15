@@ -3,6 +3,7 @@ package cn.rookiex.core.center;
 import cn.rookiex.core.RegistryConstants;
 import cn.rookiex.core.factory.ServiceFactory;
 import cn.rookiex.core.lister.WatchServiceLister;
+import cn.rookiex.core.lister.CenterLister;
 import cn.rookiex.core.registry.Registry;
 import cn.rookiex.core.service.Service;
 import cn.rookiex.core.updateEvent.ServiceUpdateEvent;
@@ -21,7 +22,7 @@ import java.util.stream.Collectors;
  * @Date : 2019/07/08
  * @Describe :
  */
-public abstract class BaseRegisterCenterImpl implements RegisterCenter, WatchServiceLister {
+public abstract class BaseRegisterCenterImpl implements RegisterCenter {
     Logger log = Logger.getLogger(getClass());
 
     public static boolean NEED_REMOVE_DELETE_CHILD = false;
@@ -35,6 +36,9 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter, WatchSer
     }
 
     Map<String, Map<String, Service>> serviceMapMap = Maps.newConcurrentMap();
+
+    List<WatchServiceLister> watchServiceListers = Lists.newCopyOnWriteArrayList();
+    List<CenterLister> centerListers = Lists.newCopyOnWriteArrayList();
 
     @Override
     public void register(String serviceName, String ip) {
@@ -68,7 +72,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter, WatchSer
         if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
-        registry.watch(serviceName, usePrefix, this);
+        registry.watch(serviceName, usePrefix, watchServiceListers);
     }
 
     /**
@@ -86,7 +90,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter, WatchSer
         if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
-        registry.unWatch(serviceName, usePrefix, this);
+        registry.unWatch(serviceName, usePrefix, watchServiceListers);
     }
 
     /**
@@ -139,27 +143,6 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter, WatchSer
         service.start();
     }
 
-    /**
-     * 处理订阅消息发来的连接
-     *
-     * @param events
-     */
-    @Override
-    public void callback(List<ServiceUpdateEvent> events) {
-        events.forEach(event -> {
-            Map<String, Service> stringServiceMap = serviceMapMap.get(event.getServiceName());
-            Service service1 = null;
-            if (stringServiceMap != null)
-                service1 = stringServiceMap.get(event.getFullPath());
-
-            if (service1 == null) {
-                addService(event);
-            } else {
-                service1.update(event, this);
-            }
-        });
-    }
-
     public ServiceFactory getFactory() {
         return factory;
     }
@@ -175,6 +158,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter, WatchSer
         }
         List<Service> serviceList = registry.getServiceList(serviceName, usePrefix);
         serviceList.forEach(this::addService);
+        registry.watch(serviceName, usePrefix, watchServiceListers);
     }
 
     /**
@@ -185,5 +169,25 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter, WatchSer
     @Override
     public void initService(String serviceName) {
         this.initService(serviceName, true);
+    }
+
+    public void addWatchServiceLister(WatchServiceLister lister) {
+        this.watchServiceListers.add(lister);
+    }
+
+    public void removeWatchServiceLister(WatchServiceLister lister) {
+        this.watchServiceListers.remove(lister);
+    }
+
+    public void addCenterLister(CenterLister lister) {
+        this.centerListers.add(lister);
+    }
+
+    public void removeCenterLister(CenterLister lister) {
+        this.centerListers.remove(lister);
+    }
+
+    public Map<String, Map<String, Service>> getServiceMapMap() {
+        return serviceMapMap;
     }
 }

@@ -63,11 +63,6 @@ public interface RegisterCenter {
      * */
     void removeService(Service service);
 
-    /**
-     * 处理订阅消息发来的连接修改事件
-     * */
-    void callback(List<ServiceUpdateEvent> events);
-
     void checkServiceState();
 
     void addService(ServiceUpdateEvent event);
