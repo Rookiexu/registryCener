@@ -1,6 +1,7 @@
 package cn.rookiex.core.registry;
 
 import cn.rookiex.core.center.RegisterCenter;
+import cn.rookiex.core.lister.WatchServiceLister;
 import cn.rookiex.core.service.Service;
 
 import java.util.List;
@@ -41,20 +42,30 @@ public interface Registry {
     /**
      * 监听服务
      * */
-    void watch(String serviceName, boolean usePrefix, RegisterCenter center);
+    void watch(String serviceName, boolean usePrefix, List<WatchServiceLister> watchList);
+
+    /**
+     * 监听服务
+     * */
+    void watch(String serviceName, boolean usePrefix, WatchServiceLister lister);
 
     /**
      * 监听服务,默认开启前缀条件
      * */
-    void watch(String serviceName,RegisterCenter center);
+    void watch(String serviceName,List<WatchServiceLister> watchList);
 
     /**
      * 取消监听服务
      * */
-    void unWatch(String serviceName, boolean usePrefix);
+    void unWatch(String serviceName, boolean usePrefix,List<WatchServiceLister> watchList);
 
     /**
      * 取消监听服务,默认开启前缀条件
      * */
-    void unWatch(String serviceName);
+    void unWatch(String serviceName,List<WatchServiceLister> watchList);
+
+    /**
+     * 取消监听服务,默认开启前缀条件
+     * */
+    void unWatch(String serviceName, boolean usePrefix, WatchServiceLister lister);
 }

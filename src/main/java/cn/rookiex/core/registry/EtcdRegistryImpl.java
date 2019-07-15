@@ -3,6 +3,7 @@ package cn.rookiex.core.registry;
 import cn.rookiex.core.RegistryConstants;
 import cn.rookiex.core.center.EtcdRegisterCenterImpl;
 import cn.rookiex.core.center.RegisterCenter;
+import cn.rookiex.core.lister.WatchServiceLister;
 import cn.rookiex.core.service.Service;
 import cn.rookiex.core.updateEvent.EtcdServiceUpdateEventImpl;
 import cn.rookiex.core.updateEvent.ServiceUpdateEvent;
@@ -72,7 +73,7 @@ public class EtcdRegistryImpl implements Registry {
     private ScheduledExecutorService keepAliveService;
     private ExecutorService executorService;
 
-    private Map<String, RegisterCenter> watchServiceMap = Maps.newConcurrentMap();
+    private Map<String, List<WatchServiceLister>> watchServiceListMap = Maps.newConcurrentMap();
     private static final int ETCD_TIME_OUT = 30000;
 
     @Override
@@ -232,35 +233,74 @@ public class EtcdRegistryImpl implements Registry {
         }, TTL_TIME / 3, TTL_TIME / 3, TimeUnit.SECONDS);
     }
 
+    /**
+     * 监听服务
+     *
+     * @param serviceName
+     * @param usePrefix
+     * @param watchList
+     */
     @Override
-    public void watch(String serviceName, boolean usePrefix, RegisterCenter center) {
+    public void watch(String serviceName, boolean usePrefix, List<WatchServiceLister> watchList) {
         if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
             serviceName += RegistryConstants.SEPARATOR;
         }
-        if (center == null) {
+        if (watchList == null) {
             logger.warn("watch service -> " + serviceName + " ,center is null !!!!!!!!!!");
             return;
         }
-        watchServiceMap.put(serviceName, center);
-        dealWatch(serviceName, usePrefix, center);
+        watchServiceListMap.merge(serviceName, watchList, (v1, v2) -> {
+            v1.addAll(v2);
+            return v1;
+        });
+        dealWatch(serviceName, usePrefix);
+    }
+
+    /**
+     * 监听服务
+     *
+     * @param serviceName
+     * @param usePrefix
+     * @param lister
+     */
+    @Override
+    public void watch(String serviceName, boolean usePrefix, WatchServiceLister lister) {
+        watch(serviceName, usePrefix, Lists.newArrayList(lister));
     }
 
     /**
      * 监听服务,默认开启前缀条件
      *
-     * @param serviceName serviceName
-     * @param center      center
+     * @param serviceName
+     * @param watchList
      */
     @Override
-    public void watch(String serviceName, RegisterCenter center) {
-        this.watch(serviceName, RegistryConstants.USE_PREFIX, center);
+    public void watch(String serviceName, List<WatchServiceLister> watchList) {
+        watch(serviceName, true, watchList);
     }
 
+    /**
+     * 取消监听服务
+     *
+     * @param serviceName
+     * @param usePrefix
+     * @param watchList
+     */
     @Override
-    public void unWatch(String serviceName, boolean usePrefix) {
-        watchServiceMap.forEach((k, v) -> {
-            if (k.startsWith(serviceName)) {
-                watchServiceMap.remove(k);
+    public void unWatch(String serviceName, boolean usePrefix, List<WatchServiceLister> watchList) {
+        watchServiceListMap.forEach((k, v) -> {
+            if (usePrefix) {
+                if (k.startsWith(serviceName)) {
+                    List<WatchServiceLister> watchServiceListers = watchServiceListMap.get(k);
+                    if (watchServiceListers != null)
+                        watchServiceListers.removeAll(watchList);
+                }
+            } else {
+                if (k.equals(serviceName)) {
+                    List<WatchServiceLister> watchServiceListers = watchServiceListMap.get(k);
+                    if (watchServiceListers != null)
+                        watchServiceListers.removeAll(watchList);
+                }
             }
         });
     }
@@ -268,14 +308,28 @@ public class EtcdRegistryImpl implements Registry {
     /**
      * 取消监听服务,默认开启前缀条件
      *
-     * @param serviceName serviceName
+     * @param serviceName
+     * @param watchList
      */
     @Override
-    public void unWatch(String serviceName) {
-        watchServiceMap.remove(serviceName);
+    public void unWatch(String serviceName, List<WatchServiceLister> watchList) {
+        unWatch(serviceName, true, watchList);
     }
 
-    private void dealWatch(String serviceName, Boolean usePrefix, RegisterCenter center) {
+    /**
+     * 取消监听服务,默认开启前缀条件
+     *
+     * @param serviceName
+     * @param usePrefix
+     * @param lister
+     */
+    @Override
+    public void unWatch(String serviceName, boolean usePrefix, WatchServiceLister lister) {
+        unWatch(serviceName, usePrefix, Lists.newArrayList(lister));
+    }
+
+
+    private void dealWatch(String serviceName, Boolean usePrefix) {
         executorService.execute(() -> {
             try {
                 Watch.Watcher watcher;
@@ -285,22 +339,22 @@ public class EtcdRegistryImpl implements Registry {
                     watcher = watchClient.watch(ByteSequence.fromString(serviceName));
                 }
                 List<WatchEvent> events = watcher.listen().getEvents();
-                callBackUpdateEvents(events, center);
+                List<WatchServiceLister> watchList = watchServiceListMap.get(serviceName);
+                callBackUpdateEvents(events, watchList);
             } catch (InterruptedException e) {
                 logger.error(e.getMessage(), e);
             }
-            RegisterCenter registerCenter = watchServiceMap.get(serviceName);
-            if (registerCenter != null)
-                this.dealWatch(serviceName, usePrefix, registerCenter);
+            if (needWatchService(serviceName))
+                this.dealWatch(serviceName, usePrefix);
         });
     }
 
     private boolean needWatchService(String serviceName) {
-        return watchServiceMap.get(serviceName) != null;
+        return watchServiceListMap.get(serviceName) != null && !watchServiceListMap.get(serviceName).isEmpty();
     }
 
 
-    private void callBackUpdateEvents(List<WatchEvent> events, RegisterCenter center) {
+    private void callBackUpdateEvents(List<WatchEvent> events, List<WatchServiceLister> watchServiceListers) {
         List<ServiceUpdateEvent> updateEvents = Lists.newCopyOnWriteArrayList();
         events.forEach(event -> {
             EtcdServiceUpdateEventImpl updateEvent = new EtcdServiceUpdateEventImpl();
@@ -320,7 +374,10 @@ public class EtcdRegistryImpl implements Registry {
                 updateEvents.add(updateEvent);
             }
         });
-        center.callback(updateEvents);
+        watchServiceListers.forEach(lister -> {
+            lister.callback(updateEvents);
+        });
+
     }
 
     public String getServiceName() {

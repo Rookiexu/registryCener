@@ -2,6 +2,7 @@ package cn.rookiex.core.center;
 
 import cn.rookiex.core.RegistryConstants;
 import cn.rookiex.core.factory.ServiceFactory;
+import cn.rookiex.core.lister.WatchServiceLister;
 import cn.rookiex.core.registry.Registry;
 import cn.rookiex.core.service.Service;
 import cn.rookiex.core.updateEvent.ServiceUpdateEvent;
@@ -20,7 +21,7 @@ import java.util.stream.Collectors;
  * @Date : 2019/07/08
  * @Describe :
  */
-public abstract class BaseRegisterCenterImpl implements RegisterCenter {
+public abstract class BaseRegisterCenterImpl implements RegisterCenter, WatchServiceLister {
     Logger log = Logger.getLogger(getClass());
 
     public static boolean NEED_REMOVE_DELETE_CHILD = false;
@@ -85,7 +86,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
         if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
-        registry.unWatch(serviceName, usePrefix);
+        registry.unWatch(serviceName, usePrefix, this);
     }
 
     /**
