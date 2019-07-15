@@ -58,12 +58,12 @@ public interface Service {
     /**
      * 处理删除节点时间,默认为抽象方法,需要子类实现具体的业务逻辑
      * */
-    void dealDeleteService(KeyValue keyValue, RegisterCenter registerCenter);
+    void dealDeleteService(KeyValue keyValue, long version, RegisterCenter registerCenter);
 
     /**
      * 处理put节点时间,默认为抽象方法,需要子类实现具体的业务逻辑
      * */
-    void dealPutService(KeyValue keyValue, RegisterCenter registerCenter);
+    void dealPutService(KeyValue keyValue, long version, RegisterCenter registerCenter);
 
     /**
      * 服务是否正常

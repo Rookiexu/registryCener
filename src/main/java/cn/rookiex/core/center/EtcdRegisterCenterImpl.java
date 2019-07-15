@@ -38,7 +38,8 @@ public class EtcdRegisterCenterImpl extends BaseRegisterCenterImpl {
                 ByteSequence value = keyValue.getValue();
                 long lease = keyValue.getLease();
                 String keyS = key.toStringUtf8();
-                Service service = factory.getService(keyS, value.toStringUtf8().equals(EtcdRegistryImpl.BAN), lease);
+                long version = keyValue.getVersion();
+                Service service = factory.getService(keyS, value.toStringUtf8().equals(EtcdRegistryImpl.BAN), lease, version);
                 if (service != null)
                     addService(service);
             }

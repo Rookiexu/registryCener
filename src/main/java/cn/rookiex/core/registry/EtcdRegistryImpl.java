@@ -117,6 +117,9 @@ public class EtcdRegistryImpl implements Registry {
      */
     @Override
     public List<Service> getServiceList(String serviceName, boolean usePrefix) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
+            serviceName += RegistryConstants.SEPARATOR;
+        }
         List<Service> serviceList = Lists.newCopyOnWriteArrayList();
         try {
             ByteSequence seqKey = ByteSequence.fromString(serviceName);
@@ -132,7 +135,8 @@ public class EtcdRegistryImpl implements Registry {
                 ByteSequence value = keyValue.getValue();
                 long lease = keyValue.getLease();
                 String keyS = key.toStringUtf8();
-                Service service = EtcdRegisterCenterImpl.factory.getService(keyS, value.toStringUtf8().equals(EtcdRegistryImpl.BAN), lease);
+                long version = keyValue.getVersion();
+                Service service = EtcdRegisterCenterImpl.factory.getService(keyS, value.toStringUtf8().equals(EtcdRegistryImpl.BAN), lease, version);
                 if (service != null)
                     serviceList.add(service);
             });
@@ -230,6 +234,9 @@ public class EtcdRegistryImpl implements Registry {
 
     @Override
     public void watch(String serviceName, boolean usePrefix, RegisterCenter center) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
+            serviceName += RegistryConstants.SEPARATOR;
+        }
         if (center == null) {
             logger.warn("watch service -> " + serviceName + " ,center is null !!!!!!!!!!");
             return;
@@ -303,12 +310,13 @@ public class EtcdRegistryImpl implements Registry {
             String keyS = keyValue.getKey().toStringUtf8();
             String[] split = keyS.split(RegistryConstants.SEPARATOR);
             if (split.length == 2) {
-                String serviceName = split[0];
+                String serviceName = split[0] + RegistryConstants.SEPARATOR;
                 updateEvent.setEventType(eventType);
                 updateEvent.setServiceName(serviceName);
                 updateEvent.setKeyValue(keyValue);
                 updateEvent.setPrevKV(prevKV);
                 updateEvent.setFullPath(keyS);
+                updateEvent.setVersion(keyValue.getVersion());
                 updateEvents.add(updateEvent);
             }
         });

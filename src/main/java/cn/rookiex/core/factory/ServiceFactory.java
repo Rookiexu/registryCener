@@ -8,5 +8,5 @@ import cn.rookiex.core.service.Service;
  * @Describe :
  */
 public interface ServiceFactory {
-    Service getService(String fullPath, boolean isBanned, long lease);
+    Service getService(String fullPath, boolean isBanned, long lease,long version);
 }

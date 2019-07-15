@@ -10,7 +10,7 @@ import cn.rookiex.core.service.Service;
  */
 public class EtcdServiceFactoryImpl implements ServiceFactory {
     @Override
-    public Service getService(String fullPath, boolean isBanned, long lease) {
-        return new EtcdServiceImpl(fullPath,isBanned,lease);
+    public Service getService(String fullPath, boolean isBanned, long lease,long version) {
+        return new EtcdServiceImpl(fullPath,isBanned,lease, version);
     }
 }

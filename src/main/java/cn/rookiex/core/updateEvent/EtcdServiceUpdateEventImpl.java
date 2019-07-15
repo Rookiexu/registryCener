@@ -14,6 +14,7 @@ public class EtcdServiceUpdateEventImpl implements ServiceUpdateEvent {
     private KeyValue prevKV;
     private String serviceName;
     private String fullPath;
+    private long version;
 
     public WatchEvent.EventType getEventType() {
         return eventType;
@@ -57,5 +58,13 @@ public class EtcdServiceUpdateEventImpl implements ServiceUpdateEvent {
     @Override
     public void setFullPath(String fullPath) {
         this.fullPath = fullPath;
+    }
+
+    public void setVersion(long version) {
+        this.version = version;
+    }
+
+    public long getVersion() {
+        return version;
     }
 }

@@ -26,8 +26,8 @@ public class EtcdServiceImpl extends BaseServiceImpl {
         executorService = Executors.newScheduledThreadPool(size);
     }
 
-    public EtcdServiceImpl(String fullPath, boolean banned, long lease) {
-        super(fullPath, banned, lease);
+    public EtcdServiceImpl(String fullPath, boolean banned, long lease,long version) {
+        super(fullPath, banned, lease,version);
     }
 
     public void init() {
@@ -53,13 +53,14 @@ public class EtcdServiceImpl extends BaseServiceImpl {
         if (event instanceof EtcdServiceUpdateEventImpl) {
             EtcdServiceUpdateEventImpl updateEvent = (EtcdServiceUpdateEventImpl) event;
             WatchEvent.EventType eventType = updateEvent.getEventType();
+            long version = updateEvent.getVersion();
             KeyValue keyValue = updateEvent.getKeyValue();
             switch (eventType) {
                 case PUT:
-                    dealPutService(keyValue, registerCenter);
+                    dealPutService(keyValue, version,registerCenter);
                     break;
                 case DELETE:
-                    dealDeleteService(keyValue, registerCenter);
+                    dealDeleteService(keyValue,version, registerCenter);
                     break;
                 default:
                     log.warn("etcd watch event err ==> " + keyValue.getKey().toStringUtf8());
@@ -77,34 +78,39 @@ public class EtcdServiceImpl extends BaseServiceImpl {
 
     /**
      * 处理删除节点时间,默认为抽象方法,需要子类实现具体的业务逻辑
-     *
-     * @param keyValue       k
+     *  @param keyValue       k
+     * @param version
      * @param registerCenter r
      */
     @Override
-    public void dealDeleteService(KeyValue keyValue, RegisterCenter registerCenter) {
-        String s = keyValue.getKey().toStringUtf8();
-        if (!s.equals(getFullPath())) {
-            return;
+    public void dealDeleteService(KeyValue keyValue, long version, RegisterCenter registerCenter) {
+        if (version > getVersion()) {
+            String s = keyValue.getKey().toStringUtf8();
+            if (!s.equals(getFullPath())) {
+                return;
+            }
+            setDelete(true);
+            registerCenter.removeService(this);
         }
-        setDelete(true);
-        registerCenter.removeService(this);
     }
 
     /**
      * 处理put节点时间,默认为抽象方法,需要子类实现具体的业务逻辑
-     *
-     * @param keyValue       k
+     *  @param keyValue       k
+     * @param version
      * @param registerCenter r
      */
     @Override
-    public void dealPutService(KeyValue keyValue, RegisterCenter registerCenter) {
-        String s = keyValue.getKey().toStringUtf8();
-        if (!s.equals(getFullPath())) {
-            return;
+    public void dealPutService(KeyValue keyValue, long version, RegisterCenter registerCenter) {
+        if (version > getVersion()) {
+            String s = keyValue.getKey().toStringUtf8();
+            if (!s.equals(getFullPath())) {
+                return;
+            }
+            setDelete(false);
+            setBanned(keyValue.getValue().toStringUtf8().equals(EtcdRegistryImpl.BAN));
+            registerCenter.addService(this);
         }
-        setDelete(false);
-        setBanned(keyValue.getValue().toStringUtf8().equals(EtcdRegistryImpl.BAN));
     }
 
     /**

@@ -38,9 +38,6 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
     @Override
     public void register(String serviceName, String ip) {
         try {
-            if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
-                serviceName = serviceName + RegistryConstants.SEPARATOR;
-            }
             registry.registerService(serviceName, ip);
         } catch (ExecutionException | InterruptedException | TimeoutException e) {
             e.printStackTrace();

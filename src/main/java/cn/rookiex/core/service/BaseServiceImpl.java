@@ -17,14 +17,16 @@ public abstract class BaseServiceImpl  implements Service  {
     private long lease;
     private boolean banned;
     private boolean delete;
+    private long version;
 
-    public BaseServiceImpl(String fullPath, boolean banned, long lease) {
+    public BaseServiceImpl(String fullPath, boolean banned, long lease,long version) {
         String[] split = fullPath.split(RegistryConstants.SEPARATOR);
         this.fullPath = fullPath;
         this.serviceName = split[0] + RegistryConstants.SEPARATOR;
         this.banned = banned;
         this.lease = lease;
         this.path = split[1];
+        this.version = version;
     }
 
     public void init() {
@@ -115,5 +117,13 @@ public abstract class BaseServiceImpl  implements Service  {
 
     public void setLease(long lease) {
         this.lease = lease;
+    }
+
+    public long getVersion() {
+        return version;
+    }
+
+    public void setVersion(long version) {
+        this.version = version;
     }
 }
