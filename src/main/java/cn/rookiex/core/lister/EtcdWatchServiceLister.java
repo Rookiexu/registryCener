@@ -12,7 +12,7 @@ import java.util.Map;
  * @Date : 2019/07/15
  * @Describe :
  */
-public class BaseCenterAddServiceLister implements WatchServiceLister {
+public class EtcdWatchServiceLister implements WatchServiceLister {
 
     private BaseRegisterCenterImpl baseRegisterCenter;
 
@@ -25,10 +25,11 @@ public class BaseCenterAddServiceLister implements WatchServiceLister {
                 service1 = stringServiceMap.get(event.getFullPath());
 
             if (service1 == null) {
-                baseRegisterCenter.addService(event);
+                service1 = baseRegisterCenter.addService(event);
             } else {
                 service1.update(event, baseRegisterCenter);
             }
+            baseRegisterCenter.serverChange(service1);
         });
     }
 

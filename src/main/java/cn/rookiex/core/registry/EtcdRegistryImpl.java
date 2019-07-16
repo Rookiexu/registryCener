@@ -2,7 +2,6 @@ package cn.rookiex.core.registry;
 
 import cn.rookiex.core.RegistryConstants;
 import cn.rookiex.core.center.EtcdRegisterCenterImpl;
-import cn.rookiex.core.center.RegisterCenter;
 import cn.rookiex.core.lister.WatchServiceLister;
 import cn.rookiex.core.service.Service;
 import cn.rookiex.core.updateEvent.EtcdServiceUpdateEventImpl;
@@ -348,8 +347,15 @@ public class EtcdRegistryImpl implements Registry {
 
 
     private void dealWatch(String serviceName, Boolean usePrefix) {
-        AtomicBoolean atomicBoolean = watchTaskRunMap.putIfAbsent(serviceName, new AtomicBoolean(false));
-        if (atomicBoolean.compareAndSet(false, true)) {
+        if (serviceName.equals(RegistryConstants.WATCH_ALL)) {
+            return;
+        }
+        AtomicBoolean atomicBoolean = new AtomicBoolean(false);
+        AtomicBoolean atomicBoolean2 = watchTaskRunMap.putIfAbsent(serviceName, atomicBoolean);
+        if (atomicBoolean2 == null) {
+            atomicBoolean2 = atomicBoolean;
+        }
+        if (atomicBoolean2.compareAndSet(false, true)) {
             executorService.execute(() -> {
                 try {
                     Watch.Watcher watcher;
@@ -371,7 +377,7 @@ public class EtcdRegistryImpl implements Registry {
                 }
             });
         }
-        if (!atomicBoolean.get()){
+        if (!atomicBoolean.get()) {
             this.dealWatch(serviceName, usePrefix);
         }
     }
@@ -401,10 +407,7 @@ public class EtcdRegistryImpl implements Registry {
                 updateEvents.add(updateEvent);
             }
         });
-        watchServiceListers.forEach(lister -> {
-            lister.watchCallback(updateEvents);
-        });
-
+        watchServiceListers.forEach(lister -> lister.watchCallback(updateEvents));
     }
 
     public String getServiceName() {

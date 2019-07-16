@@ -1,5 +1,7 @@
 package cn.rookiex.core.center;
 
+import cn.rookiex.core.RegistryConstants;
+import cn.rookiex.core.lister.EtcdWatchServiceLister;
 import cn.rookiex.core.registry.EtcdRegistryImpl;
 import cn.rookiex.core.registry.Registry;
 import cn.rookiex.core.service.Service;
@@ -11,7 +13,6 @@ import com.coreos.jetcd.watch.WatchEvent;
 import com.google.common.collect.Maps;
 import org.apache.log4j.Logger;
 
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -26,10 +27,20 @@ public class EtcdRegisterCenterImpl extends BaseRegisterCenterImpl {
 
     public EtcdRegisterCenterImpl(Registry registry) {
         super(registry);
+        EtcdWatchServiceLister etcdWatchServiceLister = new EtcdWatchServiceLister();
+        this.watch(RegistryConstants.WATCH_ALL, etcdWatchServiceLister);
+    }
+
+    public EtcdRegisterCenterImpl(Registry registry,boolean needBaseWatchLister) {
+        super(registry);
+        if (needBaseWatchLister){
+            EtcdWatchServiceLister etcdWatchServiceLister = new EtcdWatchServiceLister();
+            this.watch(RegistryConstants.WATCH_ALL, etcdWatchServiceLister);
+        }
     }
 
     @Override
-    public void addService(ServiceUpdateEvent event) {
+    public Service addService(ServiceUpdateEvent event) {
         if (event instanceof EtcdServiceUpdateEventImpl) {
             EtcdServiceUpdateEventImpl serviceUpdateEvent = (EtcdServiceUpdateEventImpl) event;
             WatchEvent.EventType eventType = serviceUpdateEvent.getEventType();
@@ -43,8 +54,10 @@ public class EtcdRegisterCenterImpl extends BaseRegisterCenterImpl {
                 Service service = factory.getService(keyS, value.toStringUtf8().equals(EtcdRegistryImpl.BAN), lease, version);
                 if (service != null)
                     addService(service);
+                return service;
             }
         }
+        return null;
     }
 
     /**

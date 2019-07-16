@@ -82,7 +82,7 @@ public interface RegisterCenter {
 
     void checkServiceState();
 
-    void addService(ServiceUpdateEvent event);
+    Service addService(ServiceUpdateEvent event);
 
     /**
      * 初始化关注的服务

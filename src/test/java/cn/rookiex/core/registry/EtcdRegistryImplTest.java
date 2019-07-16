@@ -3,13 +3,11 @@ package cn.rookiex.core.registry;
 import cn.rookiex.core.center.EtcdRegisterCenterImpl;
 import cn.rookiex.core.factory.EtcdServiceFactoryImpl;
 import cn.rookiex.core.service.Service;
-import com.coreos.jetcd.lease.LeaseKeepAliveResponse;
 import com.google.common.collect.Lists;
 import org.apache.log4j.Logger;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;

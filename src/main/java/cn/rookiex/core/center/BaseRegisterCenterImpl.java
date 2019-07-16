@@ -3,15 +3,17 @@ package cn.rookiex.core.center;
 import cn.rookiex.core.RegistryConstants;
 import cn.rookiex.core.factory.ServiceFactory;
 import cn.rookiex.core.lister.WatchServiceLister;
-import cn.rookiex.core.lister.CenterLister;
+import cn.rookiex.core.lister.ServiceChangeLister;
 import cn.rookiex.core.registry.Registry;
 import cn.rookiex.core.service.Service;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import org.apache.log4j.Logger;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -36,7 +38,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
 
     Map<String, Map<String, Service>> serviceMapMap = Maps.newConcurrentMap();
 
-    List<CenterLister> centerListers = Lists.newCopyOnWriteArrayList();
+    Set<ServiceChangeLister> serviceChangeListers = Sets.newConcurrentHashSet();
 
     Map<String, List<WatchServiceLister>> watchListMap = Maps.newConcurrentMap();
 
@@ -82,7 +84,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
      */
     @Override
     public void watch(String serviceName, List<WatchServiceLister> listerList) {
-        this.watch(serviceName, true,listerList);
+        this.watch(serviceName, true, listerList);
     }
 
     @Override
@@ -100,11 +102,11 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
      */
     @Override
     public void watch(String serviceName, WatchServiceLister lister) {
-        this.watch(serviceName, true,lister);
+        this.watch(serviceName, true, lister);
     }
 
     @Override
-    public void watch(String serviceName, boolean usePrefix,List<WatchServiceLister> listerList) {
+    public void watch(String serviceName, boolean usePrefix, List<WatchServiceLister> listerList) {
         if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
@@ -228,9 +230,11 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
         if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
-        List<Service> serviceList = registry.getServiceList(serviceName, usePrefix);
-        serviceList.forEach(this::addService);
-
+        List<Service> serviceList = registry.getServiceList(serviceName);
+        for (Service service : serviceList) {
+            addService(service);
+            serverChange(service);
+        }
         registry.watch(serviceName, usePrefix, getWatchServiceListers(serviceName));
     }
 
@@ -252,7 +256,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
             return oldV;
         });
         if (serviceName.equals(RegistryConstants.WATCH_ALL)) {
-            watchListMap.keySet().forEach(s -> this.watch(s,lister));
+            watchListMap.keySet().forEach(s -> this.watch(s, lister));
         } else {
             this.watch(serviceName, lister);
         }
@@ -270,12 +274,12 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
         });
     }
 
-    public void addCenterLister(CenterLister lister) {
-        this.centerListers.add(lister);
+    public void addCenterLister(ServiceChangeLister lister) {
+        this.serviceChangeListers.add(lister);
     }
 
-    public void removeCenterLister(CenterLister lister) {
-        this.centerListers.remove(lister);
+    public void removeCenterLister(ServiceChangeLister lister) {
+        this.serviceChangeListers.remove(lister);
     }
 
     public Map<String, Map<String, Service>> getServiceMapMap() {
@@ -293,5 +297,10 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
             objects.addAll(watchServiceListers1);
         }
         return objects;
+    }
+
+    public void serverChange(Service service) {
+        if (service != null)
+            this.serviceChangeListers.forEach(serviceChangeLister -> serviceChangeLister.serviceUpdate(service));
     }
 }

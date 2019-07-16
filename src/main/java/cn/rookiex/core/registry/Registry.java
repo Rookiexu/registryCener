@@ -21,12 +21,12 @@ public interface Registry {
     /**
      * 获得serviceName下的所有服务
      * */
-    List<Service> getServiceList(String serviceName, boolean usePrefix);
+    List<Service> getServiceList(String serviceName);
 
     /**
      * 获得serviceName下的所有服务,默认开启前缀条件
      * */
-    List<Service> getServiceList(String serviceName);
+    List<Service> getServiceList(String serviceName, boolean usePrefix);
 
     /**
      * 注册服务
