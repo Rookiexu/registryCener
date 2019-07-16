@@ -1,5 +1,6 @@
 package cn.rookiex.core.center;
 
+import cn.rookiex.core.lister.WatchServiceLister;
 import cn.rookiex.core.service.Service;
 import cn.rookiex.core.updateEvent.ServiceUpdateEvent;
 
@@ -26,6 +27,14 @@ public interface RegisterCenter {
      * */
     void watch(String serviceName,boolean usePrefix);
 
+    void watch(String serviceName, List<WatchServiceLister> listerList);
+
+    void watch(String serviceName, boolean usePrefix, WatchServiceLister lister);
+
+    void watch(String serviceName, WatchServiceLister lister);
+
+    void watch(String serviceName, boolean usePrefix, List<WatchServiceLister> listerList);
+
     /**
      * 订阅服务,默认使用前缀
      * */
@@ -34,12 +43,20 @@ public interface RegisterCenter {
     /**
      * 取消订阅服务
      * */
-    void unWatch(String serviceName,boolean usePrefix);
+    void unWatchAll(String serviceName, boolean usePrefix);
+
+    void unWatch(String serviceName, List<WatchServiceLister> listerList);
+
+    void unWatch(String serviceName, boolean usePrefix, WatchServiceLister lister);
+
+    void unWatch(String serviceName, WatchServiceLister lister);
+
+    void unWatch(String serviceName, boolean usePrefix, List<WatchServiceLister> listerList);
 
     /**
      * 取消订阅服务,默认使用前缀
      * */
-    void unWatch(String serviceName);
+    void unWatchAll(String serviceName);
 
     /**
      * 获得随机的service节点

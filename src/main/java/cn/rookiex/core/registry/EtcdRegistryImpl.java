@@ -28,6 +28,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @Author : Rookiex
@@ -74,6 +75,7 @@ public class EtcdRegistryImpl implements Registry {
     private ExecutorService executorService;
 
     private Map<String, List<WatchServiceLister>> watchServiceListMap = Maps.newConcurrentMap();
+    private Map<String, AtomicBoolean> watchTaskRunMap = Maps.newConcurrentMap();
     private static final int ETCD_TIME_OUT = 30000;
 
     @Override
@@ -118,7 +120,7 @@ public class EtcdRegistryImpl implements Registry {
      */
     @Override
     public List<Service> getServiceList(String serviceName, boolean usePrefix) {
-        if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName += RegistryConstants.SEPARATOR;
         }
         List<Service> serviceList = Lists.newCopyOnWriteArrayList();
@@ -242,7 +244,7 @@ public class EtcdRegistryImpl implements Registry {
      */
     @Override
     public void watch(String serviceName, boolean usePrefix, List<WatchServiceLister> watchList) {
-        if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName += RegistryConstants.SEPARATOR;
         }
         if (watchList == null) {
@@ -291,17 +293,31 @@ public class EtcdRegistryImpl implements Registry {
     @Override
     public void unWatch(String serviceName, boolean usePrefix, List<WatchServiceLister> watchList) {
         watchServiceListMap.forEach((k, v) -> {
-            if (usePrefix) {
-                if (k.startsWith(serviceName)) {
-                    List<WatchServiceLister> watchServiceListers = watchServiceListMap.get(k);
-                    if (watchServiceListers != null)
-                        watchServiceListers.removeAll(watchList);
-                }
+            if (serviceName.equals(RegistryConstants.WATCH_ALL)) {
+                watchServiceListMap.forEach((k1, v1) -> {
+                    if (usePrefix) {
+                        if (k1.startsWith(serviceName)) {
+                            v1.removeAll(watchList);
+                        }
+                    } else {
+                        if (k1.equals(serviceName)) {
+                            v1.removeAll(watchList);
+                        }
+                    }
+                });
             } else {
-                if (k.equals(serviceName)) {
-                    List<WatchServiceLister> watchServiceListers = watchServiceListMap.get(k);
-                    if (watchServiceListers != null)
-                        watchServiceListers.removeAll(watchList);
+                if (usePrefix) {
+                    if (k.startsWith(serviceName)) {
+                        List<WatchServiceLister> watchServiceListers = watchServiceListMap.get(k);
+                        if (watchServiceListers != null)
+                            watchServiceListers.removeAll(watchList);
+                    }
+                } else {
+                    if (k.equals(serviceName)) {
+                        List<WatchServiceLister> watchServiceListers = watchServiceListMap.get(k);
+                        if (watchServiceListers != null)
+                            watchServiceListers.removeAll(watchList);
+                    }
                 }
             }
         });
@@ -332,23 +348,32 @@ public class EtcdRegistryImpl implements Registry {
 
 
     private void dealWatch(String serviceName, Boolean usePrefix) {
-        executorService.execute(() -> {
-            try {
-                Watch.Watcher watcher;
-                if (usePrefix) {
-                    watcher = watchClient.watch(ByteSequence.fromString(serviceName), WatchOption.newBuilder().withPrefix(ByteSequence.fromString(serviceName)).build());
-                } else {
-                    watcher = watchClient.watch(ByteSequence.fromString(serviceName));
+        AtomicBoolean atomicBoolean = watchTaskRunMap.putIfAbsent(serviceName, new AtomicBoolean(false));
+        if (atomicBoolean.compareAndSet(false, true)) {
+            executorService.execute(() -> {
+                try {
+                    Watch.Watcher watcher;
+                    if (usePrefix) {
+                        watcher = watchClient.watch(ByteSequence.fromString(serviceName), WatchOption.newBuilder().withPrefix(ByteSequence.fromString(serviceName)).build());
+                    } else {
+                        watcher = watchClient.watch(ByteSequence.fromString(serviceName));
+                    }
+                    List<WatchEvent> events = watcher.listen().getEvents();
+                    List<WatchServiceLister> watchList = watchServiceListMap.get(serviceName);
+                    callBackUpdateEvents(events, watchList);
+                } catch (InterruptedException e) {
+                    logger.error(e.getMessage(), e);
+                } finally {
+                    if (needWatchService(serviceName))
+                        this.dealWatch(serviceName, usePrefix);
+                    else
+                        atomicBoolean.compareAndSet(true, false);
                 }
-                List<WatchEvent> events = watcher.listen().getEvents();
-                List<WatchServiceLister> watchList = watchServiceListMap.get(serviceName);
-                callBackUpdateEvents(events, watchList);
-            } catch (InterruptedException e) {
-                logger.error(e.getMessage(), e);
-            }
-            if (needWatchService(serviceName))
-                this.dealWatch(serviceName, usePrefix);
-        });
+            });
+        }
+        if (!atomicBoolean.get()){
+            this.dealWatch(serviceName, usePrefix);
+        }
     }
 
     private boolean needWatchService(String serviceName) {

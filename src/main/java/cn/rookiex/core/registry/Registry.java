@@ -1,6 +1,5 @@
 package cn.rookiex.core.registry;
 
-import cn.rookiex.core.center.RegisterCenter;
 import cn.rookiex.core.lister.WatchServiceLister;
 import cn.rookiex.core.service.Service;
 

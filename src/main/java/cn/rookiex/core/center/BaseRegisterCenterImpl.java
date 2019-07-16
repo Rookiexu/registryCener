@@ -6,7 +6,6 @@ import cn.rookiex.core.lister.WatchServiceLister;
 import cn.rookiex.core.lister.CenterLister;
 import cn.rookiex.core.registry.Registry;
 import cn.rookiex.core.service.Service;
-import cn.rookiex.core.updateEvent.ServiceUpdateEvent;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.apache.log4j.Logger;
@@ -37,8 +36,9 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
 
     Map<String, Map<String, Service>> serviceMapMap = Maps.newConcurrentMap();
 
-    List<WatchServiceLister> watchServiceListers = Lists.newCopyOnWriteArrayList();
     List<CenterLister> centerListers = Lists.newCopyOnWriteArrayList();
+
+    Map<String, List<WatchServiceLister>> watchListMap = Maps.newConcurrentMap();
 
     @Override
     public void register(String serviceName, String ip) {
@@ -58,7 +58,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
     @Override
     public void unRegister(String serviceName, String ip) {
         try {
-            if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
+            if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
                 serviceName = serviceName + RegistryConstants.SEPARATOR;
             }
             registry.bandService(serviceName, ip);
@@ -69,10 +69,46 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
 
     @Override
     public void watch(String serviceName, boolean usePrefix) {
-        if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
-        registry.watch(serviceName, usePrefix, watchServiceListers);
+        registry.watch(serviceName, usePrefix, getWatchServiceListers(serviceName));
+    }
+
+    /**
+     * 订阅服务,默认使用前缀
+     *
+     * @param serviceName
+     */
+    @Override
+    public void watch(String serviceName, List<WatchServiceLister> listerList) {
+        this.watch(serviceName, true,listerList);
+    }
+
+    @Override
+    public void watch(String serviceName, boolean usePrefix, WatchServiceLister lister) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
+            serviceName = serviceName + RegistryConstants.SEPARATOR;
+        }
+        registry.watch(serviceName, usePrefix, lister);
+    }
+
+    /**
+     * 订阅服务,默认使用前缀
+     *
+     * @param serviceName
+     */
+    @Override
+    public void watch(String serviceName, WatchServiceLister lister) {
+        this.watch(serviceName, true,lister);
+    }
+
+    @Override
+    public void watch(String serviceName, boolean usePrefix,List<WatchServiceLister> listerList) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
+            serviceName = serviceName + RegistryConstants.SEPARATOR;
+        }
+        registry.watch(serviceName, usePrefix, listerList);
     }
 
     /**
@@ -86,11 +122,11 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
     }
 
     @Override
-    public void unWatch(String serviceName, boolean usePrefix) {
-        if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
+    public void unWatchAll(String serviceName, boolean usePrefix) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
-        registry.unWatch(serviceName, usePrefix, watchServiceListers);
+        registry.unWatch(serviceName, usePrefix, getWatchServiceListers(serviceName));
     }
 
     /**
@@ -99,13 +135,49 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
      * @param serviceName
      */
     @Override
-    public void unWatch(String serviceName) {
-        this.unWatch(serviceName, true);
+    public void unWatch(String serviceName, List<WatchServiceLister> listerList) {
+        this.unWatch(serviceName, true, listerList);
+    }
+
+    @Override
+    public void unWatch(String serviceName, boolean usePrefix, WatchServiceLister lister) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
+            serviceName = serviceName + RegistryConstants.SEPARATOR;
+        }
+        registry.unWatch(serviceName, usePrefix, lister);
+    }
+
+    /**
+     * 取消订阅服务,默认使用前缀
+     *
+     * @param serviceName
+     */
+    @Override
+    public void unWatch(String serviceName, WatchServiceLister lister) {
+        this.unWatch(serviceName, true, lister);
+    }
+
+    @Override
+    public void unWatch(String serviceName, boolean usePrefix, List<WatchServiceLister> listerList) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
+            serviceName = serviceName + RegistryConstants.SEPARATOR;
+        }
+        registry.unWatch(serviceName, usePrefix, listerList);
+    }
+
+    /**
+     * 取消订阅服务,默认使用前缀
+     *
+     * @param serviceName
+     */
+    @Override
+    public void unWatchAll(String serviceName) {
+        this.unWatchAll(serviceName, true);
     }
 
     @Override
     public Service getRandomService(String serviceName) {
-        if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
         Map<String, Service> stringServiceMap = serviceMapMap.get(serviceName);
@@ -117,7 +189,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
 
     @Override
     public List<Service> getServiceList(String serviceName) {
-        if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
         Map<String, Service> stringServiceMap = serviceMapMap.get(serviceName);
@@ -128,7 +200,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
 
     @Override
     public List<Service> getServiceListWithUnWork(String serviceName) {
-        if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
         Map<String, Service> stringServiceMap = serviceMapMap.get(serviceName);
@@ -153,12 +225,13 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
 
     @Override
     public void initService(String serviceName, boolean usePrefix) {
-        if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
+        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
         List<Service> serviceList = registry.getServiceList(serviceName, usePrefix);
         serviceList.forEach(this::addService);
-        registry.watch(serviceName, usePrefix, watchServiceListers);
+
+        registry.watch(serviceName, usePrefix, getWatchServiceListers(serviceName));
     }
 
     /**
@@ -171,12 +244,30 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
         this.initService(serviceName, true);
     }
 
-    public void addWatchServiceLister(WatchServiceLister lister) {
-        this.watchServiceListers.add(lister);
+    public void addWatchServiceLister(String serviceName, WatchServiceLister lister) {
+        List<WatchServiceLister> objects = Lists.newCopyOnWriteArrayList();
+        objects.add(lister);
+        this.watchListMap.merge(serviceName, objects, (oldV, newV) -> {
+            oldV.addAll(newV);
+            return oldV;
+        });
+        if (serviceName.equals(RegistryConstants.WATCH_ALL)) {
+            watchListMap.keySet().forEach(s -> this.watch(s,lister));
+        } else {
+            this.watch(serviceName, lister);
+        }
     }
 
-    public void removeWatchServiceLister(WatchServiceLister lister) {
-        this.watchServiceListers.remove(lister);
+    public void removeWatchServiceLister(String serviceName, WatchServiceLister lister) {
+        this.watchListMap.forEach((k, v) -> {
+            if (serviceName.equals(RegistryConstants.WATCH_ALL)) {
+                v.remove(lister);
+                unWatch(k, lister);
+            } else if (serviceName.equals(k)) {
+                v.remove(lister);
+                unWatch(k, lister);
+            }
+        });
     }
 
     public void addCenterLister(CenterLister lister) {
@@ -189,5 +280,18 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
 
     public Map<String, Map<String, Service>> getServiceMapMap() {
         return serviceMapMap;
+    }
+
+    public List<WatchServiceLister> getWatchServiceListers(String serviceName) {
+        List<WatchServiceLister> objects = Lists.newCopyOnWriteArrayList();
+        List<WatchServiceLister> watchServiceListers = watchListMap.get(serviceName);
+        List<WatchServiceLister> watchServiceListers1 = watchListMap.get(RegistryConstants.WATCH_ALL);
+        if (watchServiceListers != null) {
+            objects.addAll(watchServiceListers);
+        }
+        if (watchServiceListers1 != null) {
+            objects.addAll(watchServiceListers1);
+        }
+        return objects;
     }
 }
