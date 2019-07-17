@@ -20,10 +20,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @SuppressWarnings("Duplicates")
 public class EtcdRegistryImplTest {
     private Logger log = Logger.getLogger(getClass());
-    private String endpoint = "http://etcd.rookiex.cn:2379";
+    private String endpoint = "";
     private String service = "testService";
     private String ip = "192.168.2.26";
     private int port = 1111;
+    String endpoints = "";
+    String userName = "";
+    String password = "";
 
     @BeforeClass
     public static void before() {
@@ -33,9 +36,6 @@ public class EtcdRegistryImplTest {
     @Test
     public void init() {
         EtcdRegistryImpl etcdRegister = new EtcdRegistryImpl();
-        String endpoints = "http://47.91.94.187:2380;http://47.91.94.56:2380;http://47.91.92.234:2380";
-        String userName = "root";
-        String password = "DyZxI19s8FNd";
         etcdRegister.init(endpoints, userName, password);
         dealRegisterService(etcdRegister, 1);
     }
