@@ -60,7 +60,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
     @Override
     public void unRegister(String serviceName, String ip) {
         try {
-            if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
+            if (!serviceName.endsWith(RegistryConstants.SEPARATOR)) {
                 serviceName = serviceName + RegistryConstants.SEPARATOR;
             }
             registry.bandService(serviceName, ip);
@@ -71,7 +71,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
 
     @Override
     public void watch(String serviceName, boolean usePrefix) {
-        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
+        if (!usePrefix && !serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
         registry.watch(serviceName, usePrefix, getWatchServiceListers(serviceName));
@@ -89,7 +89,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
 
     @Override
     public void watch(String serviceName, boolean usePrefix, WatchServiceLister lister) {
-        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
+        if (!usePrefix && !serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
         registry.watch(serviceName, usePrefix, lister);
@@ -107,7 +107,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
 
     @Override
     public void watch(String serviceName, boolean usePrefix, List<WatchServiceLister> listerList) {
-        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
+        if (!usePrefix && !serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
         registry.watch(serviceName, usePrefix, listerList);
@@ -125,7 +125,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
 
     @Override
     public void unWatchAll(String serviceName, boolean usePrefix) {
-        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
+        if (!usePrefix && !serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
         registry.unWatch(serviceName, usePrefix, getWatchServiceListers(serviceName));
@@ -143,7 +143,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
 
     @Override
     public void unWatch(String serviceName, boolean usePrefix, WatchServiceLister lister) {
-        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
+        if (!usePrefix && !serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
         registry.unWatch(serviceName, usePrefix, lister);
@@ -161,7 +161,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
 
     @Override
     public void unWatch(String serviceName, boolean usePrefix, List<WatchServiceLister> listerList) {
-        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
+        if (!usePrefix && !serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
         registry.unWatch(serviceName, usePrefix, listerList);
@@ -227,7 +227,7 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
 
     @Override
     public void initService(String serviceName, boolean usePrefix) {
-        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
+        if (!usePrefix && !serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
         List<Service> serviceList = registry.getServiceList(serviceName);

@@ -119,7 +119,7 @@ public class EtcdRegistryImpl implements Registry {
      */
     @Override
     public List<Service> getServiceList(String serviceName, boolean usePrefix) {
-        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
+        if (!usePrefix && !serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName += RegistryConstants.SEPARATOR;
         }
         List<Service> serviceList = Lists.newCopyOnWriteArrayList();
@@ -243,7 +243,7 @@ public class EtcdRegistryImpl implements Registry {
      */
     @Override
     public void watch(String serviceName, boolean usePrefix, List<WatchServiceLister> watchList) {
-        if (!serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
+        if (!usePrefix && !serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName += RegistryConstants.SEPARATOR;
         }
         if (watchList == null) {
