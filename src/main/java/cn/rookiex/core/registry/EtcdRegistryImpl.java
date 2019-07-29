@@ -6,10 +6,7 @@ import cn.rookiex.core.lister.WatchServiceLister;
 import cn.rookiex.core.service.Service;
 import cn.rookiex.core.updateEvent.EtcdServiceUpdateEventImpl;
 import cn.rookiex.core.updateEvent.ServiceUpdateEvent;
-import com.coreos.jetcd.Client;
-import com.coreos.jetcd.KV;
-import com.coreos.jetcd.Lease;
-import com.coreos.jetcd.Watch;
+import com.coreos.jetcd.*;
 import com.coreos.jetcd.data.ByteSequence;
 import com.coreos.jetcd.data.KeyValue;
 import com.coreos.jetcd.kv.GetResponse;
@@ -21,8 +18,13 @@ import com.coreos.jetcd.options.WatchOption;
 import com.coreos.jetcd.watch.WatchEvent;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import io.grpc.ManagedChannel;
+import io.grpc.util.RoundRobinLoadBalancerFactory;
 import org.apache.log4j.Logger;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +69,14 @@ public class EtcdRegistryImpl implements Registry {
      */
     private volatile boolean registryOK = false;
 
+    /**
+     * etcd 连接
+     */
+    private ManagedChannel managedChannel;
+
+    private CompletableFuture<Client> completableFuture;
+
+    private Client client;
     private KV kvClient;
     private Watch watchClient;
 
@@ -76,39 +86,145 @@ public class EtcdRegistryImpl implements Registry {
     private Map<String, List<WatchServiceLister>> watchServiceListMap = Maps.newConcurrentMap();
     private Map<String, AtomicBoolean> watchTaskRunMap = Maps.newConcurrentMap();
     private static final int ETCD_TIME_OUT = 30000;
+    private volatile boolean started;
+
+
+    /**
+     * 30秒,连接的过期时间
+     * */
+    private long expirePeriod = 30;
+    private boolean connectState;
+    private ScheduledExecutorService reconnectNotify;
+    private ScheduledFuture<?> reconnectFuture;
+    private ScheduledFuture<?> retryFuture;
+
 
     @Override
     public void init(String url) {
         String[] urls = url.split(";");
         List<String> urlList = Lists.newArrayList();
-        Client client;
-        if (urls.length > 1) {
-            urlList.addAll(Arrays.asList(urls));
-            client = Client.builder().endpoints(urlList).build();
-        } else {
-            client = Client.builder().endpoints(url).build();
-        }
-        this.leaseClient = client.getLeaseClient();
-        this.kvClient = client.getKVClient();
-        this.watchClient = client.getWatchClient();
+        urlList.addAll(Arrays.asList(urls));
         executorService = Executors.newCachedThreadPool();
+        this.completableFuture = CompletableFuture.supplyAsync(() -> prepareClient(urlList));
+        this.reconnectNotify = Executors.newScheduledThreadPool(1,
+                (r)->  new Thread(r, "reconnectNotify"));
+
+        ScheduledExecutorService retryExecutor = Executors.newScheduledThreadPool(1,
+                (r)->  new Thread(r, "Etcd3RegistryKeepAliveFailedRetryTimer"));
+
+        this.retryFuture = retryExecutor.scheduleWithFixedDelay(() -> {
+            try {
+                reConnect();
+            } catch (Throwable t) {
+                logger.error("Unexpected error occur at failed retry, cause: " + t.getMessage(), t);
+            }
+        }, retryPeriod, retryPeriod, TimeUnit.MILLISECONDS);
     }
 
     @Override
     public void init(String url, String user, String password) {
         String[] urls = url.split(";");
         List<String> urlList = Lists.newArrayList();
-        Client client;
-        if (urls.length > 1) {
-            urlList.addAll(Arrays.asList(urls));
-            client = Client.builder().endpoints(urlList).authority(user).password(ByteSequence.fromString(password)).build();
-        } else {
-            client = Client.builder().endpoints(url).authority(user).password(ByteSequence.fromString(password)).build();
+        urlList.addAll(Arrays.asList(urls));
+        executorService = Executors.newCachedThreadPool();
+        this.completableFuture = CompletableFuture.supplyAsync(() -> prepareClient(urlList,user,password));
+    }
+
+    private Client prepareClient(List<String> urlList){
+        ClientBuilder clientBuilder = Client.builder()
+                .loadBalancerFactory(RoundRobinLoadBalancerFactory.getInstance())
+                .endpoints(urlList);
+        return clientBuilder.build();
+    }
+
+    private Client prepareClient(List<String> urlList,String user,String password){
+        ClientBuilder clientBuilder = Client.builder()
+                .loadBalancerFactory(RoundRobinLoadBalancerFactory.getInstance())
+                .endpoints(urlList).authority(user).password(ByteSequence.fromString(password));
+        return clientBuilder.build();
+    }
+
+
+    /**
+     * 连接
+     */
+    @Override
+    public void startConnect() {
+        try {
+            client = this.completableFuture.get();
+        } catch (InterruptedException | ExecutionException e) {
+            logger.warn(e,e);
         }
         this.leaseClient = client.getLeaseClient();
         this.kvClient = client.getKVClient();
         this.watchClient = client.getWatchClient();
-        executorService = Executors.newCachedThreadPool();
+
+
+        if (!started) {
+            try {
+                this.client = completableFuture.get(expirePeriod, TimeUnit.SECONDS);
+                this.connectState = isConnected();
+                this.started = true;
+            } catch (Throwable t) {
+                logger.error("Timeout! etcd3 server can not be connected in : " + expirePeriod + " seconds! url: " + url, t);
+
+                completableFuture.whenComplete((c, e) -> {
+                    this.client = c;
+                    if (e != null) {
+                        logger.error("Got an exception when trying to create etcd3 instance, can not connect to etcd3 server, url: " + url, e);
+                    }
+                });
+
+            }
+
+            try {
+                this.reconnectFuture = reconnectNotify.scheduleWithFixedDelay(() -> {
+                    boolean connected = isConnected();
+                    if (connectState != connected) {
+                        int notifyState = connected ? StateListener.CONNECTED : StateListener.DISCONNECTED;
+                        if (connectionStateListener != null) {
+                            try {
+                                if (connected) {
+                                    clearKeepAlive();
+                                }
+                                connectionStateListener.stateChanged(getClient(), notifyState);
+                            } finally {
+                                cancelKeepAlive = false;
+                            }
+                        }
+                        connectState = connected;
+                    }
+                }, DEFAULT_RECONNECT_PERIOD, DEFAULT_RECONNECT_PERIOD, TimeUnit.MILLISECONDS);
+            } catch (Throwable t) {
+                logger.error("monitor reconnect status failed.", t);
+            }
+        }
+    }
+
+    /**
+     * 重连接
+     */
+    @Override
+    public void reConnect() {
+
+    }
+
+
+    private ManagedChannel newChannel(Client client) {
+        try {
+            Field connectionField = client.getClass().getDeclaredField("connectionManager");
+            if (!connectionField.isAccessible()) {
+                connectionField.setAccessible(true);
+            }
+            Object connection = connectionField.get(client);
+            Method channel = connection.getClass().getDeclaredMethod("getChannel");
+            if (!channel.isAccessible()) {
+                channel.setAccessible(true);
+            }
+            return (ManagedChannel) channel.invoke(connection);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to obtain connection channel from etcd ", e);
+        }
     }
 
     /**
@@ -343,6 +459,14 @@ public class EtcdRegistryImpl implements Registry {
     @Override
     public void unWatch(String serviceName, boolean usePrefix, WatchServiceLister lister) {
         unWatch(serviceName, usePrefix, Lists.newArrayList(lister));
+    }
+
+    /**
+     * 是否活跃
+     */
+    @Override
+    public boolean isConnected() {
+        return managedChannel != null && !managedChannel.isShutdown() && !managedChannel.isTerminated();
     }
 
 

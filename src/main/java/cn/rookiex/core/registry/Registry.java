@@ -67,4 +67,19 @@ public interface Registry {
      * 取消监听服务,默认开启前缀条件
      * */
     void unWatch(String serviceName, boolean usePrefix, WatchServiceLister lister);
+
+    /**
+     * 是否活跃
+     * */
+    boolean isConnected();
+
+    /**
+     * 连接
+     * */
+    void startConnect();
+
+    /**
+     * 重连接
+     * */
+    void reConnect();
 }
