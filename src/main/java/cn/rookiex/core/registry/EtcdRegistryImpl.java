@@ -2,6 +2,8 @@ package cn.rookiex.core.registry;
 
 import cn.rookiex.core.RegistryConstants;
 import cn.rookiex.core.center.EtcdRegisterCenterImpl;
+import cn.rookiex.core.lister.ConnectionStateListener;
+import cn.rookiex.core.lister.StateListener;
 import cn.rookiex.core.lister.WatchServiceLister;
 import cn.rookiex.core.service.Service;
 import cn.rookiex.core.updateEvent.EtcdServiceUpdateEventImpl;
@@ -18,16 +20,14 @@ import com.coreos.jetcd.options.WatchOption;
 import com.coreos.jetcd.watch.WatchEvent;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import io.grpc.ManagedChannel;
 import io.grpc.util.RoundRobinLoadBalancerFactory;
 import org.apache.log4j.Logger;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -87,7 +87,7 @@ public class EtcdRegistryImpl implements Registry {
     private Map<String, AtomicBoolean> watchTaskRunMap = Maps.newConcurrentMap();
     private static final int ETCD_TIME_OUT = 30000;
     private volatile boolean started;
-
+    private final Set<StateListener> stateListeners = Sets.newConcurrentHashSet();
 
     /**
      * 30秒,连接的过期时间
@@ -97,37 +97,85 @@ public class EtcdRegistryImpl implements Registry {
     private ScheduledExecutorService reconnectNotify;
     private ScheduledFuture<?> reconnectFuture;
     private ScheduledFuture<?> retryFuture;
+    private ConnectionStateListener connectionStateListener;
+    private String url;
 
 
     @Override
     public void init(String url) {
+        this.url = url;
         String[] urls = url.split(";");
         List<String> urlList = Lists.newArrayList();
         urlList.addAll(Arrays.asList(urls));
-        executorService = Executors.newCachedThreadPool();
+        //连接etcd
         this.completableFuture = CompletableFuture.supplyAsync(() -> prepareClient(urlList));
+
+        init0();
+    }
+
+    private void init0(){
+        //watch 线程池
+        executorService = Executors.newCachedThreadPool();
+
+        //etcd状态监测线程池
         this.reconnectNotify = Executors.newScheduledThreadPool(1,
                 (r)->  new Thread(r, "reconnectNotify"));
 
+        //注册重试线程池
         ScheduledExecutorService retryExecutor = Executors.newScheduledThreadPool(1,
                 (r)->  new Thread(r, "Etcd3RegistryKeepAliveFailedRetryTimer"));
-
         this.retryFuture = retryExecutor.scheduleWithFixedDelay(() -> {
             try {
                 reConnect();
             } catch (Throwable t) {
                 logger.error("Unexpected error occur at failed retry, cause: " + t.getMessage(), t);
             }
-        }, retryPeriod, retryPeriod, TimeUnit.MILLISECONDS);
+        }, 30, 30, TimeUnit.MILLISECONDS);
+
+        //连接状态监听
+        setConnectionStateListener((client, state) -> {
+            if (state == StateListener.CONNECTED) {
+                this.stateChanged(StateListener.CONNECTED);
+            } else if (state == StateListener.DISCONNECTED) {
+                this.stateChanged(StateListener.DISCONNECTED);
+            }
+        });
+
+        //连接状态监听
+        addStateListener(state -> {
+            if (state == StateListener.CONNECTED) {
+                try {
+                    recover();
+                } catch (Exception e) {
+                    logger.error(e.getMessage(), e);
+                }
+            }
+        });
+    }
+
+    private void recover() {
+        // TODO: 2019/8/5 连接上的时候把注册和订阅信息刷新一下
+    }
+
+    private void stateChanged(int state) {
+        for (StateListener sessionListener : getStateListeners()) {
+            sessionListener.stateChanged(state);
+        }
+    }
+
+    public void setConnectionStateListener(ConnectionStateListener connectionStateListener) {
+        this.connectionStateListener = connectionStateListener;
     }
 
     @Override
     public void init(String url, String user, String password) {
+        this.url = url;
         String[] urls = url.split(";");
         List<String> urlList = Lists.newArrayList();
         urlList.addAll(Arrays.asList(urls));
-        executorService = Executors.newCachedThreadPool();
         this.completableFuture = CompletableFuture.supplyAsync(() -> prepareClient(urlList,user,password));
+
+        init0();
     }
 
     private Client prepareClient(List<String> urlList){
@@ -159,22 +207,20 @@ public class EtcdRegistryImpl implements Registry {
         this.kvClient = client.getKVClient();
         this.watchClient = client.getWatchClient();
 
-
         if (!started) {
             try {
                 this.client = completableFuture.get(expirePeriod, TimeUnit.SECONDS);
                 this.connectState = isConnected();
                 this.started = true;
             } catch (Throwable t) {
-                logger.error("Timeout! etcd3 server can not be connected in : " + expirePeriod + " seconds! url: " + url, t);
+                logger.error("Timeout! etcd3 server can not be connected in : " + expirePeriod + " seconds! url: "+url , t);
 
                 completableFuture.whenComplete((c, e) -> {
                     this.client = c;
                     if (e != null) {
-                        logger.error("Got an exception when trying to create etcd3 instance, can not connect to etcd3 server, url: " + url, e);
+                        logger.error("Got an exception when trying to create etcd3 instance, can not connect to etcd3 server, url: "+url , e);
                     }
                 });
-
             }
 
             try {
@@ -184,17 +230,14 @@ public class EtcdRegistryImpl implements Registry {
                         int notifyState = connected ? StateListener.CONNECTED : StateListener.DISCONNECTED;
                         if (connectionStateListener != null) {
                             try {
-                                if (connected) {
-                                    clearKeepAlive();
-                                }
-                                connectionStateListener.stateChanged(getClient(), notifyState);
+                                connectionStateListener.stateChanged(this,notifyState);
                             } finally {
-                                cancelKeepAlive = false;
+                                keepAlive = true;
                             }
                         }
                         connectState = connected;
                     }
-                }, DEFAULT_RECONNECT_PERIOD, DEFAULT_RECONNECT_PERIOD, TimeUnit.MILLISECONDS);
+                }, 20, 20, TimeUnit.MILLISECONDS);
             } catch (Throwable t) {
                 logger.error("monitor reconnect status failed.", t);
             }
@@ -548,5 +591,13 @@ public class EtcdRegistryImpl implements Registry {
 
     public void setIp(String ip) {
         this.ip = ip;
+    }
+
+    public Set<StateListener> getStateListeners() {
+        return stateListeners;
+    }
+
+    public void addStateListener(StateListener listener){
+        this.stateListeners.add(listener);
     }
 }
