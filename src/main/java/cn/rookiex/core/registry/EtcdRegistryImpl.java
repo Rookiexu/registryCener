@@ -518,12 +518,12 @@ public class EtcdRegistryImpl implements Registry {
         if (serviceName.equals(RegistryConstants.WATCH_ALL)) {
             return;
         }
-        AtomicBoolean atomicBoolean = new AtomicBoolean(false);
-        AtomicBoolean atomicBoolean2 = watchTaskRunMap.putIfAbsent(serviceName, atomicBoolean);
-        if (atomicBoolean2 == null) {
-            atomicBoolean2 = atomicBoolean;
+        AtomicBoolean isWatchNew = new AtomicBoolean(false);
+        AtomicBoolean isWatch = watchTaskRunMap.putIfAbsent(serviceName, isWatchNew);
+        if (isWatch == null) {
+            isWatch = isWatchNew;
         }
-        if (atomicBoolean2.compareAndSet(false, true)) {
+        if (isWatch.compareAndSet(false, true)) {
             try {
                 Watch.Watcher watcher;
                 if (usePrefix) {
@@ -537,12 +537,12 @@ public class EtcdRegistryImpl implements Registry {
             } catch (InterruptedException e) {
                 logger.error(e.getMessage(), e);
             } finally {
-                atomicBoolean.compareAndSet(true, false);
+                isWatchNew.compareAndSet(true, false);
                 if (needWatchService(serviceName))
                     watchService.execute(() -> dealWatch(serviceName, usePrefix));
             }
         }
-        if (!atomicBoolean.get()) {
+        if (!isWatchNew.get()) {
             try {
                 Thread.sleep(200);
             } catch (InterruptedException e) {
