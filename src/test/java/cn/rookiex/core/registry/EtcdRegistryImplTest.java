@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @SuppressWarnings("Duplicates")
 public class EtcdRegistryImplTest {
     private Logger log = Logger.getLogger(getClass());
-    private String endpoint = "";
+    private String endpoint = "http://etcd.rookiex.cn:2379";
     private String service = "testService";
     private String ip = "192.168.2.26";
     private int port = 1111;
@@ -141,6 +141,7 @@ public class EtcdRegistryImplTest {
         int size = 5;
         EtcdRegistryImpl etcdRegister = new EtcdRegistryImpl();
         etcdRegister.init(endpoint);
+        etcdRegister.startConnect();
         try {
             for (int i = 0; i < size; i++) {
                 String newIp = ip + ":" + (port + i);

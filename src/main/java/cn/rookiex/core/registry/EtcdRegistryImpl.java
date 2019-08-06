@@ -81,7 +81,7 @@ public class EtcdRegistryImpl implements Registry {
     private Watch watchClient;
 
     private ScheduledExecutorService keepAliveService;
-    private ExecutorService executorService;
+    private ExecutorService watchService;
 
     private Map<String, List<WatchServiceLister>> watchServiceListMap = Maps.newConcurrentMap();
     private Map<String, AtomicBoolean> watchTaskRunMap = Maps.newConcurrentMap();
@@ -91,7 +91,7 @@ public class EtcdRegistryImpl implements Registry {
 
     /**
      * 30秒,连接的过期时间
-     * */
+     */
     private long expirePeriod = 30;
     private boolean connectState;
     private ScheduledExecutorService reconnectNotify;
@@ -113,17 +113,17 @@ public class EtcdRegistryImpl implements Registry {
         init0();
     }
 
-    private void init0(){
+    private void init0() {
         //watch 线程池
-        executorService = Executors.newCachedThreadPool();
+        watchService = Executors.newCachedThreadPool();
 
         //etcd状态监测线程池
         this.reconnectNotify = Executors.newScheduledThreadPool(1,
-                (r)->  new Thread(r, "reconnectNotify"));
+                (r) -> new Thread(r, "reconnectNotify"));
 
         //注册重试线程池
         ScheduledExecutorService retryExecutor = Executors.newScheduledThreadPool(1,
-                (r)->  new Thread(r, "Etcd3RegistryKeepAliveFailedRetryTimer"));
+                (r) -> new Thread(r, "Etcd3RegistryKeepAliveFailedRetryTimer"));
         this.retryFuture = retryExecutor.scheduleWithFixedDelay(() -> {
             try {
                 reConnect();
@@ -173,19 +173,19 @@ public class EtcdRegistryImpl implements Registry {
         String[] urls = url.split(";");
         List<String> urlList = Lists.newArrayList();
         urlList.addAll(Arrays.asList(urls));
-        this.completableFuture = CompletableFuture.supplyAsync(() -> prepareClient(urlList,user,password));
+        this.completableFuture = CompletableFuture.supplyAsync(() -> prepareClient(urlList, user, password));
 
         init0();
     }
 
-    private Client prepareClient(List<String> urlList){
+    private Client prepareClient(List<String> urlList) {
         ClientBuilder clientBuilder = Client.builder()
                 .loadBalancerFactory(RoundRobinLoadBalancerFactory.getInstance())
                 .endpoints(urlList);
         return clientBuilder.build();
     }
 
-    private Client prepareClient(List<String> urlList,String user,String password){
+    private Client prepareClient(List<String> urlList, String user, String password) {
         ClientBuilder clientBuilder = Client.builder()
                 .loadBalancerFactory(RoundRobinLoadBalancerFactory.getInstance())
                 .endpoints(urlList).authority(user).password(ByteSequence.fromString(password));
@@ -201,7 +201,7 @@ public class EtcdRegistryImpl implements Registry {
         try {
             client = this.completableFuture.get();
         } catch (InterruptedException | ExecutionException e) {
-            logger.warn(e,e);
+            logger.warn(e, e);
         }
         this.leaseClient = client.getLeaseClient();
         this.kvClient = client.getKVClient();
@@ -213,12 +213,12 @@ public class EtcdRegistryImpl implements Registry {
                 this.connectState = isConnected();
                 this.started = true;
             } catch (Throwable t) {
-                logger.error("Timeout! etcd3 server can not be connected in : " + expirePeriod + " seconds! url: "+url , t);
+                logger.error("Timeout! etcd3 server can not be connected in : " + expirePeriod + " seconds! url: " + url, t);
 
                 completableFuture.whenComplete((c, e) -> {
                     this.client = c;
                     if (e != null) {
-                        logger.error("Got an exception when trying to create etcd3 instance, can not connect to etcd3 server, url: "+url , e);
+                        logger.error("Got an exception when trying to create etcd3 instance, can not connect to etcd3 server, url: " + url, e);
                     }
                 });
             }
@@ -230,7 +230,7 @@ public class EtcdRegistryImpl implements Registry {
                         int notifyState = connected ? StateListener.CONNECTED : StateListener.DISCONNECTED;
                         if (connectionStateListener != null) {
                             try {
-                                connectionStateListener.stateChanged(this,notifyState);
+                                connectionStateListener.stateChanged(this, notifyState);
                             } finally {
                                 keepAlive = true;
                             }
@@ -415,7 +415,8 @@ public class EtcdRegistryImpl implements Registry {
             list.addAll(v2);
             return list;
         });
-        dealWatch(serviceName, usePrefix);
+        String finalServiceName = serviceName;
+        watchService.execute(() -> dealWatch(finalServiceName, usePrefix));
     }
 
     /**
@@ -523,29 +524,32 @@ public class EtcdRegistryImpl implements Registry {
             atomicBoolean2 = atomicBoolean;
         }
         if (atomicBoolean2.compareAndSet(false, true)) {
-            executorService.execute(() -> {
-                try {
-                    Watch.Watcher watcher;
-                    if (usePrefix) {
-                        watcher = watchClient.watch(ByteSequence.fromString(serviceName), WatchOption.newBuilder().withPrefix(ByteSequence.fromString(serviceName)).build());
-                    } else {
-                        watcher = watchClient.watch(ByteSequence.fromString(serviceName));
-                    }
-                    List<WatchEvent> events = watcher.listen().getEvents();
-                    List<WatchServiceLister> watchList = watchServiceListMap.get(serviceName);
-                    callBackUpdateEvents(events, watchList);
-                } catch (InterruptedException e) {
-                    logger.error(e.getMessage(), e);
-                } finally {
-                    if (needWatchService(serviceName))
-                        this.dealWatch(serviceName, usePrefix);
-                    else
-                        atomicBoolean.compareAndSet(true, false);
+            try {
+                Watch.Watcher watcher;
+                if (usePrefix) {
+                    watcher = watchClient.watch(ByteSequence.fromString(serviceName), WatchOption.newBuilder().withPrefix(ByteSequence.fromString(serviceName)).build());
+                } else {
+                    watcher = watchClient.watch(ByteSequence.fromString(serviceName));
                 }
-            });
+                List<WatchEvent> events = watcher.listen().getEvents();
+                List<WatchServiceLister> watchList = watchServiceListMap.get(serviceName);
+                callBackUpdateEvents(events, watchList);
+            } catch (InterruptedException e) {
+                logger.error(e.getMessage(), e);
+            } finally {
+                atomicBoolean.compareAndSet(true, false);
+                if (needWatchService(serviceName))
+                    watchService.execute(() -> dealWatch(serviceName, usePrefix));
+            }
         }
         if (!atomicBoolean.get()) {
-            this.dealWatch(serviceName, usePrefix);
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                logger.warn(e, e);
+            }
+            logger.warn("re watch " + serviceName + " ,isUsePrefix " + usePrefix);
+            watchService.execute(() -> dealWatch(serviceName, usePrefix));
         }
     }
 
@@ -597,7 +601,7 @@ public class EtcdRegistryImpl implements Registry {
         return stateListeners;
     }
 
-    public void addStateListener(StateListener listener){
+    public void addStateListener(StateListener listener) {
         this.stateListeners.add(listener);
     }
 }
