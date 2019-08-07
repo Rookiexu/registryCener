@@ -26,8 +26,8 @@ public class EtcdServiceImpl extends BaseServiceImpl {
         executorService = Executors.newScheduledThreadPool(size);
     }
 
-    public EtcdServiceImpl(String fullPath, boolean banned, long lease,long version) {
-        super(fullPath, banned, lease,version);
+    public EtcdServiceImpl(String fullPath, boolean banned, long lease, long version) {
+        super(fullPath, banned, lease, version);
     }
 
     public void init() {
@@ -57,10 +57,10 @@ public class EtcdServiceImpl extends BaseServiceImpl {
             KeyValue keyValue = updateEvent.getKeyValue();
             switch (eventType) {
                 case PUT:
-                    dealPutService(keyValue, version,registerCenter);
+                    dealPutService(keyValue, version, registerCenter);
                     break;
                 case DELETE:
-                    dealDeleteService(keyValue,version, registerCenter);
+                    dealDeleteService(keyValue, version, registerCenter);
                     break;
                 default:
                     log.warn("etcd watch event err ==> " + keyValue.getKey().toStringUtf8());
@@ -78,25 +78,25 @@ public class EtcdServiceImpl extends BaseServiceImpl {
 
     /**
      * 处理删除节点时间,默认为抽象方法,需要子类实现具体的业务逻辑
-     *  @param keyValue       k
+     *
+     * @param keyValue       k
      * @param version
      * @param registerCenter r
      */
     @Override
     public void dealDeleteService(KeyValue keyValue, long version, RegisterCenter registerCenter) {
-        if (version > getVersion()) {
-            String s = keyValue.getKey().toStringUtf8();
-            if (!s.equals(getFullPath())) {
-                return;
-            }
-            setDelete(true);
-            registerCenter.removeService(this);
+        String s = keyValue.getKey().toStringUtf8();
+        if (!s.equals(getFullPath())) {
+            return;
         }
+        setDelete(true);
+        registerCenter.removeService(this);
     }
 
     /**
      * 处理put节点时间,默认为抽象方法,需要子类实现具体的业务逻辑
-     *  @param keyValue       k
+     *
+     * @param keyValue       k
      * @param version
      * @param registerCenter r
      */

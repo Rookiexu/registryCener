@@ -29,7 +29,10 @@ public class EtcdWatchServiceLister implements WatchServiceLister {
             } else {
                 service1.update(event, baseRegisterCenter);
             }
-            baseRegisterCenter.serverChange(service1);
+            if (stringServiceMap != null)
+                service1 = stringServiceMap.get(event.getFullPath());
+            if (service1 != null)
+                baseRegisterCenter.serverChange(service1);
         });
     }
 
