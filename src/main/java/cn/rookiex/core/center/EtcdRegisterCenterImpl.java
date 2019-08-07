@@ -28,6 +28,7 @@ public class EtcdRegisterCenterImpl extends BaseRegisterCenterImpl {
     public EtcdRegisterCenterImpl(Registry registry) {
         super(registry);
         EtcdWatchServiceLister etcdWatchServiceLister = new EtcdWatchServiceLister();
+        etcdWatchServiceLister.setBaseRegisterCenter(this);
         this.watch(RegistryConstants.WATCH_ALL, etcdWatchServiceLister);
     }
 
@@ -35,6 +36,7 @@ public class EtcdRegisterCenterImpl extends BaseRegisterCenterImpl {
         super(registry);
         if (needBaseWatchLister){
             EtcdWatchServiceLister etcdWatchServiceLister = new EtcdWatchServiceLister();
+            etcdWatchServiceLister.setBaseRegisterCenter(this);
             this.watch(RegistryConstants.WATCH_ALL, etcdWatchServiceLister);
         }
     }

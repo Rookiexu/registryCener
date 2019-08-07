@@ -14,6 +14,7 @@ import org.apache.log4j.Logger;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -92,6 +93,12 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
         if (!usePrefix && !serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
+        CopyOnWriteArrayList<WatchServiceLister> objects = Lists.newCopyOnWriteArrayList();
+        objects.add(lister);
+        watchListMap.merge(serviceName, objects,(o1,o2)->{
+            o1.addAll(o2);
+            return o1;
+        });
         registry.watch(serviceName, usePrefix, lister);
     }
 
@@ -110,6 +117,10 @@ public abstract class BaseRegisterCenterImpl implements RegisterCenter {
         if (!usePrefix && !serviceName.endsWith(RegistryConstants.SEPARATOR) && !serviceName.equals(RegistryConstants.WATCH_ALL)) {
             serviceName = serviceName + RegistryConstants.SEPARATOR;
         }
+        watchListMap.merge(serviceName, listerList,(o1,o2)->{
+            o1.addAll(o2);
+            return o1;
+        });
         registry.watch(serviceName, usePrefix, listerList);
     }
 

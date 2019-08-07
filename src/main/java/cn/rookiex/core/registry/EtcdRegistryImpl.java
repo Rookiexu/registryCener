@@ -41,7 +41,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class EtcdRegistryImpl implements Registry {
 
     public static final String BAN = "ban", OPEN = "open";
-    public static int TTL_TIME = 10;
+    public static int TTL_TIME = 100;
 
     private long leaseId = 0;
 
@@ -312,8 +312,8 @@ public class EtcdRegistryImpl implements Registry {
                     serviceList.add(service);
             });
             return serviceList;
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            logger.warn(e,e);
         }
         return serviceList;
     }
@@ -382,7 +382,7 @@ public class EtcdRegistryImpl implements Registry {
             if (!keepAlive) {
                 this.keepAliveService.shutdown();
             } else {
-                if (registryOK) {
+                if (!registryOK) {
                     try {
                         registerService(getServiceName(), getIp());
                     } catch (ExecutionException | InterruptedException | TimeoutException e1) {
@@ -548,22 +548,22 @@ public class EtcdRegistryImpl implements Registry {
                 List<WatchEvent> events = watcher.listen().getEvents();
                 List<WatchServiceLister> watchList = watchServiceListMap.get(serviceName);
                 callBackUpdateEvents(events, watchList);
-            } catch (InterruptedException e) {
-                logger.error(e.getMessage(), e);
+            } catch (Exception e ) {
+                logger.warn(e.getMessage(), e);
             } finally {
-                isWatchNew.compareAndSet(true, false);
-                if (needWatchService(serviceName))
-                    watchService.execute(() -> dealWatch(serviceName, usePrefix));
+                isWatch.compareAndSet(true, false);
             }
         }
-        if (!isWatchNew.get()) {
-            try {
-                Thread.sleep(200);
-            } catch (InterruptedException e) {
-                logger.warn(e, e);
+        if (!isWatch.get()) {
+            if (needWatchService(serviceName)) {
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException e) {
+                    logger.warn(e, e);
+                }
+                logger.warn("re watch " + serviceName + " ,isUsePrefix " + usePrefix);
+                watchService.execute(() -> dealWatch(serviceName, usePrefix));
             }
-            logger.warn("re watch " + serviceName + " ,isUsePrefix " + usePrefix);
-            watchService.execute(() -> dealWatch(serviceName, usePrefix));
         }
     }
 
