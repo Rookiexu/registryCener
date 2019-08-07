@@ -21,6 +21,7 @@ import com.coreos.jetcd.watch.WatchEvent;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import io.grpc.ConnectivityState;
 import io.grpc.ManagedChannel;
 import io.grpc.util.RoundRobinLoadBalancerFactory;
 import org.apache.log4j.Logger;
@@ -30,6 +31,7 @@ import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @Author : Rookiex
@@ -72,7 +74,7 @@ public class EtcdRegistryImpl implements Registry {
     /**
      * etcd 连接
      */
-    private ManagedChannel managedChannel;
+    private AtomicReference<ManagedChannel> managedChannel;
 
     private CompletableFuture<Client> completableFuture;
 
@@ -86,7 +88,7 @@ public class EtcdRegistryImpl implements Registry {
     private Map<String, List<WatchServiceLister>> watchServiceListMap = Maps.newConcurrentMap();
     private Map<String, AtomicBoolean> watchTaskRunMap = Maps.newConcurrentMap();
     private static final int ETCD_TIME_OUT = 30000;
-    private volatile boolean started;
+    //    private volatile boolean started;
     private final Set<StateListener> stateListeners = Sets.newConcurrentHashSet();
 
     /**
@@ -94,8 +96,8 @@ public class EtcdRegistryImpl implements Registry {
      */
     private long expirePeriod = 30;
     private boolean connectState;
-    private ScheduledExecutorService reconnectNotify;
-    private ScheduledFuture<?> reconnectFuture;
+    private ScheduledExecutorService connectNotify;
+    private ScheduledFuture<?> connectFuture;
     private ScheduledFuture<?> retryFuture;
     private ConnectionStateListener connectionStateListener;
     private String url;
@@ -118,19 +120,19 @@ public class EtcdRegistryImpl implements Registry {
         watchService = Executors.newCachedThreadPool();
 
         //etcd状态监测线程池
-        this.reconnectNotify = Executors.newScheduledThreadPool(1,
-                (r) -> new Thread(r, "reconnectNotify"));
+        this.connectNotify = Executors.newScheduledThreadPool(1,
+                (r) -> new Thread(r, "connectNotify"));
 
         //注册重试线程池
         ScheduledExecutorService retryExecutor = Executors.newScheduledThreadPool(1,
                 (r) -> new Thread(r, "Etcd3RegistryKeepAliveFailedRetryTimer"));
         this.retryFuture = retryExecutor.scheduleWithFixedDelay(() -> {
             try {
-                reConnect();
+                retry();
             } catch (Throwable t) {
                 logger.error("Unexpected error occur at failed retry, cause: " + t.getMessage(), t);
             }
-        }, 30, 30, TimeUnit.MILLISECONDS);
+        }, 200, 200, TimeUnit.MILLISECONDS);
 
         //连接状态监听
         setConnectionStateListener((client, state) -> {
@@ -146,6 +148,16 @@ public class EtcdRegistryImpl implements Registry {
             if (state == StateListener.CONNECTED) {
                 try {
                     recover();
+                } catch (Exception e) {
+                    logger.error(e.getMessage(), e);
+                }
+            }
+        });
+
+        addStateListener(state -> {
+            if (state == StateListener.DISCONNECTED) {
+                try {
+                    connect();
                 } catch (Exception e) {
                     logger.error(e.getMessage(), e);
                 }
@@ -192,55 +204,53 @@ public class EtcdRegistryImpl implements Registry {
         return clientBuilder.build();
     }
 
+    public void connect() {
+        try {
+            this.client = completableFuture.get(expirePeriod, TimeUnit.SECONDS);
+            this.leaseClient = client.getLeaseClient();
+            this.kvClient = client.getKVClient();
+            this.watchClient = client.getWatchClient();
+        } catch (Throwable t) {
+            logger.error("Timeout! etcd3 server can not be connected in : " + expirePeriod + " seconds! url: " + url, t);
+
+            completableFuture.whenComplete((c, e) -> {
+                this.client = c;
+                if (client != null) {
+                    this.leaseClient = client.getLeaseClient();
+                    this.kvClient = client.getKVClient();
+                    this.watchClient = client.getWatchClient();
+                }
+                if (e != null) {
+                    logger.error("Got an exception when trying to create etcd3 instance, can not connect to etcd3 server, url: " + url, e);
+                }
+            });
+        }
+    }
+
 
     /**
      * 连接
      */
     @Override
     public void startConnect() {
+        connect();
         try {
-            client = this.completableFuture.get();
-        } catch (InterruptedException | ExecutionException e) {
-            logger.warn(e, e);
-        }
-        this.leaseClient = client.getLeaseClient();
-        this.kvClient = client.getKVClient();
-        this.watchClient = client.getWatchClient();
-
-        if (!started) {
-            try {
-                this.client = completableFuture.get(expirePeriod, TimeUnit.SECONDS);
-                this.connectState = isConnected();
-                this.started = true;
-            } catch (Throwable t) {
-                logger.error("Timeout! etcd3 server can not be connected in : " + expirePeriod + " seconds! url: " + url, t);
-
-                completableFuture.whenComplete((c, e) -> {
-                    this.client = c;
-                    if (e != null) {
-                        logger.error("Got an exception when trying to create etcd3 instance, can not connect to etcd3 server, url: " + url, e);
-                    }
-                });
-            }
-
-            try {
-                this.reconnectFuture = reconnectNotify.scheduleWithFixedDelay(() -> {
-                    boolean connected = isConnected();
-                    if (connectState != connected) {
-                        int notifyState = connected ? StateListener.CONNECTED : StateListener.DISCONNECTED;
-                        if (connectionStateListener != null) {
-                            try {
-                                connectionStateListener.stateChanged(this, notifyState);
-                            } finally {
-                                keepAlive = true;
-                            }
+            this.connectFuture = connectNotify.scheduleWithFixedDelay(() -> {
+                boolean connected = isConnected();
+                if (connectState != connected) {
+                    int notifyState = connected ? StateListener.CONNECTED : StateListener.DISCONNECTED;
+                    if (connectionStateListener != null) {
+                        try {
+                            connectionStateListener.stateChanged(this, notifyState);
+                        } finally {
+                            keepAlive = true;
                         }
-                        connectState = connected;
                     }
-                }, 20, 20, TimeUnit.MILLISECONDS);
-            } catch (Throwable t) {
-                logger.error("monitor reconnect status failed.", t);
-            }
+                    connectState = connected;
+                }
+            }, 200, 200, TimeUnit.MILLISECONDS);
+        } catch (Throwable t) {
+            logger.error("monitor reconnect status failed.", t);
         }
     }
 
@@ -248,7 +258,7 @@ public class EtcdRegistryImpl implements Registry {
      * 重连接
      */
     @Override
-    public void reConnect() {
+    public void retry() {
 
     }
 
@@ -510,7 +520,11 @@ public class EtcdRegistryImpl implements Registry {
      */
     @Override
     public boolean isConnected() {
-        return managedChannel != null && !managedChannel.isShutdown() && !managedChannel.isTerminated();
+        if (managedChannel.get() == null || (managedChannel.get().isShutdown() || managedChannel.get().isTerminated())) {
+            managedChannel.set(newChannel(client));
+        }
+        return ConnectivityState.READY == (managedChannel.get().getState(false))
+                || ConnectivityState.IDLE == (managedChannel.get().getState(false));
     }
 
 

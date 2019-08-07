@@ -81,5 +81,5 @@ public interface Registry {
     /**
      * 重连接
      * */
-    void reConnect();
+    void retry();
 }
